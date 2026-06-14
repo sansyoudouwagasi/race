@@ -32,12 +32,12 @@ html, body {
   pointer-events: none; /* 下の3D画面をクリック可能にする */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr 1fr;
   grid-template-rows: auto 1fr auto;
   grid-template-areas: 
-    "left-top center-top right-top"
-    ". . ."
-    "left-bottom . right-bottom";
+    "left-top right-top"
+    ". ."
+    "left-bottom right-bottom";
   z-index: 10;
 }
 
@@ -58,14 +58,20 @@ html, body {
   text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 }
 
-/* 左上: 順位 */
-#rank-panel {
+/* 左上コンテナ（順位 & アイテム） */
+#left-top-container {
   grid-area: left-top;
   justify-self: start;
   margin: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  animation: float 3s ease-in-out infinite;
+}
+
+#rank-panel {
   min-width: 100px;
   border-left: 4px solid #ff007f;
-  animation: float 3s ease-in-out infinite;
 }
 
 /* 右上: LAP数 */
@@ -100,11 +106,9 @@ html, body {
   font-style: normal;
 }
 
-/* 中央上: アイテムスロット */
+/* アイテムスロット */
 #item-panel {
-  grid-area: center-top;
-  justify-self: center;
-  margin-top: 20px;
+  margin: 0;
 }
 
 #item-slot {
@@ -343,15 +347,25 @@ body.touch-device #mobile-controls {
 }
 
 #countdown-text {
-  font-size: 6rem;
+  font-size: 8rem;
   font-weight: 900;
-  color: #fff;
   font-style: italic;
-  text-shadow: 0 0 30px rgba(0, 240, 255, 0.8), 0 0 10px #00f0ff;
-  letter-spacing: 0.1em;
-  transform: scale(0.8);
-  animation: countdown-pulse 1s ease-out infinite;
+  letter-spacing: 0.05em;
+  transform: scale(0);
+  opacity: 0;
+  transition: none;
 }
+
+#countdown-text.pop {
+  animation: countdown-pop 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* カウントダウン色分け & ネオン光彩 */
+#countdown-text.color-ready { color: #ffffff; text-shadow: 0 0 20px #ffffff, 0 0 40px #00f0ff; }
+#countdown-text.color-3 { color: #ff0055; text-shadow: 0 0 20px #ff0055, 0 0 40px #ff0000; }
+#countdown-text.color-2 { color: #ffcc00; text-shadow: 0 0 20px #ffcc00, 0 0 40px #ffaa00; }
+#countdown-text.color-1 { color: #00f0ff; text-shadow: 0 0 20px #00f0ff, 0 0 40px #00aaff; }
+#countdown-text.color-go { color: #00ff66; text-shadow: 0 0 20px #00ff66, 0 0 40px #00cc00; }
 
 /* --- リザルト画面 --- */
 #result-screen {
@@ -496,10 +510,11 @@ body.touch-device #mobile-controls {
   }
 }
 
-@keyframes countdown-pulse {
-  0% { transform: scale(0.6); opacity: 0; }
-  20% { transform: scale(1); opacity: 1; }
-  80% { transform: scale(1); opacity: 1; }
+@keyframes countdown-pop {
+  0% { transform: scale(0.3) rotate(-3deg); opacity: 0; }
+  12% { transform: scale(1.18) rotate(3deg); opacity: 1; }
+  22% { transform: scale(1.0) rotate(0deg); opacity: 1; }
+  80% { transform: scale(1.0); opacity: 1; }
   100% { transform: scale(1.4); opacity: 0; }
 }
 

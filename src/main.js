@@ -582,23 +582,38 @@ class GameManager {
     const overlay = document.getElementById('overlay-screen');
     const textEl = document.getElementById('countdown-text');
     
+    let newText = '';
+    let colorClass = 'color-ready';
+    
     if (this.countdownTimer > 3.0) {
-      textEl.innerText = 'READY';
+      newText = 'READY';
+      colorClass = 'color-ready';
     } else if (this.countdownTimer > 2.0) {
-      textEl.innerText = '3';
+      newText = '3';
+      colorClass = 'color-3';
     } else if (this.countdownTimer > 1.0) {
-      textEl.innerText = '2';
+      newText = '2';
+      colorClass = 'color-2';
     } else if (this.countdownTimer > 0.0) {
-      textEl.innerText = '1';
+      newText = '1';
+      colorClass = 'color-1';
     } else {
-      // GO!
-      textEl.innerText = 'GO!';
+      newText = 'GO!';
+      colorClass = 'color-go';
       this.gameState = 'RACING';
       
       // 1.2秒後にスタートオーバーレイを消す
       setTimeout(() => {
         overlay.style.display = 'none';
       }, 1200);
+    }
+    
+    // 文字が切り替わった瞬間にアニメーションを再トリガー
+    if (textEl.innerText !== newText) {
+      textEl.innerText = newText;
+      textEl.className = ''; // クラスをクリア
+      void textEl.offsetWidth; // リフローを強制してCSSアニメーションを再始動
+      textEl.classList.add('pop', colorClass);
     }
   }
   
@@ -745,7 +760,9 @@ class GameManager {
   restartGame() {
     document.getElementById('result-screen').style.display = 'none';
     document.getElementById('overlay-screen').style.display = 'flex';
-    document.getElementById('countdown-text').innerText = 'READY';
+    const textEl = document.getElementById('countdown-text');
+    textEl.innerText = 'READY';
+    textEl.className = 'pop color-ready';
     
     this.gameState = 'READY';
     this.countdownTimer = 3.5;
