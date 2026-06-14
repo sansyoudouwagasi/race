@@ -74,14 +74,20 @@ html, body {
   border-left: 4px solid #ff007f;
 }
 
-/* 右上: LAP数 */
-#lap-panel {
+/* 右上コンテナ（周回数 & ミニマップ） */
+#right-top-container {
   grid-area: right-top;
   justify-self: end;
   margin: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  animation: float 3s ease-in-out infinite 1.5s;
+}
+
+#lap-panel {
   min-width: 100px;
   border-right: 4px solid #00f0ff;
-  animation: float 3s ease-in-out infinite 1.5s;
 }
 
 .label {
@@ -150,17 +156,6 @@ html, body {
   text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
 }
 
-/* 右下: ミニマップ & スピードメーター */
-#right-bottom-panel {
-  grid-area: right-bottom;
-  justify-self: end;
-  margin: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 15px;
-}
-
 #minimap-container {
   width: 140px;
   height: 140px;
@@ -183,6 +178,11 @@ html, body {
 }
 
 #speed-panel {
+  grid-area: right-bottom;
+  justify-self: end;
+  align-self: end;
+  margin: 20px;
+  margin-bottom: 175px; /* 右下のモバイルアクションボタンと被らないように浮かせる */
   flex-direction: row;
   align-items: baseline;
   padding: 8px 16px;
