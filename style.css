@@ -219,20 +219,20 @@ html, body {
   padding: 20px 40px;
 }
 
-#steering-controls, #action-controls {
+#left-controls {
+  pointer-events: auto; /* ボタン部分はタッチ可能にする */
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+#right-controls {
   pointer-events: auto; /* ボタン部分はタッチ可能にする */
   display: flex;
   gap: 15px;
-}
-
-#steering-controls {
   margin-bottom: env(safe-area-inset-bottom);
-}
-
-#action-controls {
-  flex-direction: column;
   align-items: flex-end;
-  margin-bottom: env(safe-area-inset-bottom);
 }
 
 .action-row {
@@ -264,10 +264,10 @@ html, body {
 
 /* ステアリングボタン */
 .steer-btn {
-  width: 80px;
-  height: 80px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  font-size: 1.8rem;
+  font-size: 1.4rem;
 }
 
 /* アクションボタン */
