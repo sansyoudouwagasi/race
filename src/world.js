@@ -54,31 +54,71 @@ export class GameWorld {
     this.spawnItemBoxes();
   }
   
-  // 美しいグラデーションスカイドーム
+  // 晴れ渡った青空と白い雲を CanvasTexture で動的に生成
   createSkybox() {
-    const vertexShader = `
-      varying vec3 vWorldPosition;
-      void main() {
-        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-        vWorldPosition = worldPosition.xyz;
-        gl_Position = projectionMatrix * viewMatrix * worldPosition;
-      }
-    `;
-    const fragmentShader = `
-      varying vec3 vWorldPosition;
-      void main() {
-        float h = normalize(vWorldPosition + vec3(0.0, 100.0, 0.0)).y;
-        // 上空は深い青、地平線は鮮やかなシアン・マゼンタの夕暮れグラデーション
-        vec3 skyColor = mix(vec3(0.05, 0.05, 0.15), vec3(0.05, 0.4, 0.6), max(h, 0.0));
-        vec3 sunsetColor = mix(skyColor, vec3(0.8, 0.1, 0.4), max(1.0 - h * 4.0, 0.0) * 0.4);
-        gl_FragColor = vec4(sunsetColor, 1.0);
-      }
-    `;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    // 背景の青空グラデーション (上は澄み切った青、下は地平線の明るい水色)
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    grad.addColorStop(0, '#1d6ef2'); // 上空の鮮やかな青
+    grad.addColorStop(0.55, '#5ca4f5'); // 中間の明るい青
+    grad.addColorStop(0.85, '#99ccff'); // 下方の薄い水色
+    grad.addColorStop(1.0, '#e6f3ff'); // 地平線の白っぽい空色
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 雲を描くヘルパー関数 (もこもこした重なりとぼかし効果)
+    function drawCloud(cx, cy, scale) {
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(scale, scale);
+      
+      // 雲のふんわり感を出すためのぼかしと半透明白
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.7)';
+      ctx.shadowBlur = 20;
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, 35, 0, Math.PI * 2);
+      ctx.arc(-30, 5, 25, 0, Math.PI * 2);
+      ctx.arc(30, 5, 25, 0, Math.PI * 2);
+      ctx.arc(-55, 12, 18, 0, Math.PI * 2);
+      ctx.arc(55, 12, 18, 0, Math.PI * 2);
+      ctx.arc(-80, 18, 12, 0, Math.PI * 2);
+      ctx.arc(80, 18, 12, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fill();
+      
+      ctx.restore();
+    }
+    
+    // 空全体にバランスよく雲を配置
+    // テクスチャのY方向中央よりやや上（地平線〜上空の間）に描画
+    const cloudPositions = [
+      { x: 120, y: 160, s: 1.1 },
+      { x: 320, y: 210, s: 0.75 },
+      { x: 520, y: 150, s: 1.4 },
+      { x: 740, y: 180, s: 0.95 },
+      { x: 910, y: 140, s: 1.2 },
+      { x: 230, y: 130, s: 0.65 },
+      { x: 640, y: 200, s: 0.85 },
+      { x: 40, y: 220, s: 0.5 }
+    ];
+    
+    cloudPositions.forEach(p => {
+      drawCloud(p.x, p.y, p.s);
+    });
+    
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
     
     const skyGeo = new THREE.SphereGeometry(1000, 32, 15);
-    const skyMat = new THREE.ShaderMaterial({
-      vertexShader,
-      fragmentShader,
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: texture,
       side: THREE.BackSide
     });
     
@@ -86,14 +126,14 @@ export class GameWorld {
     this.scene.add(sky);
   }
   
-  // コース以外の背景地面（草地）
+  // コース以外の背景地面（明るい芝生）
   createGround() {
     const groundGeo = new THREE.PlaneGeometry(2000, 2000);
-    // 深いネオングリーンのグリッド調の地面
+    // 明るい爽やかなグリーンの芝生地面
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x112b15,
-      roughness: 0.9,
-      metalness: 0.1,
+      color: 0x3d8c4c, // 鮮やかな緑
+      roughness: 0.85,
+      metalness: 0.05,
     });
     
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -102,10 +142,10 @@ export class GameWorld {
     ground.receiveShadow = true;
     this.scene.add(ground);
     
-    // グリッドヘルパーを追加してサイバー感を演出
-    const grid = new THREE.GridHelper(2000, 100, 0x00ff88, 0x004422);
+    // グリッドヘルパーを爽やかなトーンで追加
+    const grid = new THREE.GridHelper(2000, 100, 0x8be5a3, 0x3d7a4a);
     grid.position.y = -4.9;
-    grid.material.opacity = 0.15;
+    grid.material.opacity = 0.22;
     grid.material.transparent = true;
     this.scene.add(grid);
   }

@@ -58,14 +58,14 @@ class GameManager {
     this.camera.position.set(0, 10, 15);
   }
   
-  // ライティングの設定
+  // 晴れ渡る昼間のライティング設定
   setupLights() {
-    // 環境光
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+    // 環境光 (明るめに設定して影を和らげる)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     this.scene.add(ambientLight);
     
-    // 太陽光（シャドウマップ設定）
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.95);
+    // 太陽光（昼間の強い光とシャドウマップ）
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.10);
     dirLight.position.set(100, 150, 50);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
@@ -81,8 +81,8 @@ class GameManager {
     
     this.scene.add(dirLight);
     
-    // 夜明け/夕暮れ感を出すネオン補色ライト
-    const hemiLight = new THREE.HemisphereLight(0x00f0ff, 0xff007f, 0.4);
+    // 昼間の青空と明るい芝生をシミュレートする半球ライト
+    const hemiLight = new THREE.HemisphereLight(0xa3d2ff, 0x608c4b, 0.45);
     hemiLight.position.set(0, 50, 0);
     this.scene.add(hemiLight);
   }
