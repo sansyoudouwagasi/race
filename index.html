@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-DSMD5W-M.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-D4GVcmmo.css">
+  <script type="module" crossorigin src="./assets/index-DkMAiKST.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-Yu9L98qm.css">
 </head>
 <body>
   <!-- 3Dレンダリング用キャンバス -->
@@ -52,21 +52,21 @@
 
     <!-- モバイル用コントロールパッド (タッチ操作用) -->
     <div id="mobile-controls">
-      <!-- 左下: ステアリング -->
-      <div id="steering-controls">
-        <button id="btn-left" class="control-btn steer-btn">◀</button>
-        <button id="btn-right" class="control-btn steer-btn">▶</button>
-      </div>
-      <!-- 右下: アクション -->
-      <div id="action-controls">
+      <!-- 左下: ステアリング & アイテム・ドリフト -->
+      <div id="left-controls">
         <div class="action-row">
           <button id="btn-item" class="control-btn action-btn item-btn">ITEM</button>
           <button id="btn-drift" class="control-btn action-btn drift-btn">DRIFT</button>
         </div>
         <div class="action-row">
-          <button id="btn-brake" class="control-btn action-btn brake-btn">B</button>
-          <button id="btn-gas" class="control-btn action-btn gas-btn">A</button>
+          <button id="btn-left" class="control-btn steer-btn">◀</button>
+          <button id="btn-right" class="control-btn steer-btn">▶</button>
         </div>
+      </div>
+      <!-- 右下: アクセル & ブレーキ -->
+      <div id="right-controls" class="action-row">
+        <button id="btn-brake" class="control-btn action-btn brake-btn">B</button>
+        <button id="btn-gas" class="control-btn action-btn gas-btn">A</button>
       </div>
     </div>
   </div>
