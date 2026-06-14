@@ -1,0 +1,514 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0b0b10;
+  position: relative;
+}
+
+#game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* --- HUD (Head Up Display) --- */
+#hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* 下の3D画面をクリック可能にする */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas: 
+    "left-top center-top right-top"
+    ". . ."
+    "left-bottom . right-bottom";
+  z-index: 10;
+}
+
+/* 共通パネルデザイン（ガラスモーフィズム） */
+.hud-panel {
+  background: rgba(15, 15, 25, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  color: #fff;
+  padding: 10px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+/* 左上: 順位 */
+#rank-panel {
+  grid-area: left-top;
+  justify-self: start;
+  margin: 20px;
+  min-width: 100px;
+  border-left: 4px solid #ff007f;
+  animation: float 3s ease-in-out infinite;
+}
+
+/* 右上: LAP数 */
+#lap-panel {
+  grid-area: right-top;
+  justify-self: end;
+  margin: 20px;
+  min-width: 100px;
+  border-right: 4px solid #00f0ff;
+  animation: float 3s ease-in-out infinite 1.5s;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 2px;
+}
+
+.value {
+  font-size: 2.2rem;
+  font-weight: 900;
+  line-height: 1;
+  font-style: italic;
+}
+
+.value .sub {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: normal;
+}
+
+/* 中央上: アイテムスロット */
+#item-panel {
+  grid-area: center-top;
+  justify-self: center;
+  margin-top: 20px;
+}
+
+#item-slot {
+  width: 76px;
+  height: 76px;
+  background: rgba(10, 10, 20, 0.8);
+  border: 3px solid #ffaa00;
+  border-radius: 18px;
+  box-shadow: 0 0 20px rgba(255, 170, 0, 0.4);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  animation: neon-glow 2s ease-in-out infinite alternate;
+}
+
+#item-slot-inner {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#item-icon {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
+}
+
+#item-spinner {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #ffaa00;
+  text-shadow: 0 0 10px rgba(255, 170, 0, 0.8);
+}
+
+/* 右下: ミニマップ & スピードメーター */
+#right-bottom-panel {
+  grid-area: right-bottom;
+  justify-self: end;
+  margin: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 15px;
+}
+
+#minimap-container {
+  width: 140px;
+  height: 140px;
+  background: rgba(15, 15, 25, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#minimap-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#speed-panel {
+  flex-direction: row;
+  align-items: baseline;
+  padding: 8px 16px;
+  border-radius: 12px;
+  min-width: 90px;
+}
+
+#speed-value {
+  font-size: 1.8rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #00f0ff;
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+}
+
+#speed-panel .unit {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  margin-left: 4px;
+}
+
+/* --- モバイル用コントロールパッド (タッチ操作用) --- */
+#mobile-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 20px 40px;
+}
+
+#steering-controls, #action-controls {
+  pointer-events: auto; /* ボタン部分はタッチ可能にする */
+  display: flex;
+  gap: 15px;
+}
+
+#steering-controls {
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+#action-controls {
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: env(safe-area-inset-bottom);
+}
+
+.action-row {
+  display: flex;
+  gap: 15px;
+}
+
+/* コントロールボタン共通デザイン */
+.control-btn {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  transition: transform 0.05s, background-color 0.1s, border-color 0.1s;
+  touch-action: manipulation;
+}
+
+.control-btn:active {
+  transform: scale(0.9);
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* ステアリングボタン */
+.steer-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  font-size: 1.8rem;
+}
+
+/* アクションボタン */
+.gas-btn {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.2);
+  border-color: rgba(0, 240, 255, 0.5);
+  color: #00f0ff;
+  font-size: 1.8rem;
+}
+.gas-btn:active {
+  background: rgba(0, 240, 255, 0.4);
+}
+
+.brake-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(255, 0, 80, 0.2);
+  border-color: rgba(255, 0, 80, 0.5);
+  color: #ff0050;
+  font-size: 1.4rem;
+}
+.brake-btn:active {
+  background: rgba(255, 0, 80, 0.4);
+}
+
+.drift-btn {
+  width: 70px;
+  height: 50px;
+  border-radius: 25px;
+  background: rgba(255, 200, 0, 0.2);
+  border-color: rgba(255, 200, 0, 0.5);
+  color: #ffc800;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+.drift-btn:active {
+  background: rgba(255, 200, 0, 0.4);
+}
+
+.item-btn {
+  width: 70px;
+  height: 50px;
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+
+/* PCや非タッチデバイスではコントロールボタンを隠す（タッチ操作検出時に動的に表示） */
+#mobile-controls {
+  display: none;
+}
+
+body.touch-device #mobile-controls {
+  display: flex;
+}
+
+/* --- オーバーレイスクリーン (カウントダウン/スタート) --- */
+#overlay-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 10, 15, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  pointer-events: none;
+}
+
+#countdown-text {
+  font-size: 6rem;
+  font-weight: 900;
+  color: #fff;
+  font-style: italic;
+  text-shadow: 0 0 30px rgba(0, 240, 255, 0.8), 0 0 10px #00f0ff;
+  letter-spacing: 0.1em;
+  transform: scale(0.8);
+  animation: countdown-pulse 1s ease-out infinite;
+}
+
+/* --- リザルト画面 --- */
+#result-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(7, 7, 12, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.result-box {
+  background: rgba(20, 20, 35, 0.7);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  padding: 40px 60px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  max-width: 500px;
+  width: 90%;
+  animation: modal-enter 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#result-title {
+  font-size: 3.5rem;
+  font-weight: 900;
+  font-style: italic;
+  color: #00f0ff;
+  text-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+  margin-bottom: 25px;
+}
+
+.result-stats {
+  margin-bottom: 35px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.stat-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 1.4rem;
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 8px;
+}
+
+.stat-line .highlight {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #ff007f;
+  text-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+}
+
+#final-time {
+  font-family: monospace;
+  font-weight: bold;
+}
+
+#btn-restart {
+  background: linear-gradient(135deg, #00f0ff 0%, #ff007f 100%);
+  border: none;
+  border-radius: 30px;
+  color: #white;
+  color: white;
+  padding: 14px 40px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(255, 0, 127, 0.3);
+  transition: transform 0.2s, box-shadow 0.2s;
+  pointer-events: auto;
+}
+
+#btn-restart:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(255, 0, 127, 0.5);
+}
+
+#btn-restart:active {
+  transform: translateY(1px);
+}
+
+/* --- 横画面推奨警告 (ポートレートモード検知) --- */
+#landscape-warning {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #08080c;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  color: #fff;
+  text-align: center;
+}
+
+.warning-content {
+  padding: 20px;
+}
+
+.phone-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  animation: rotate-phone 2s ease-in-out infinite;
+}
+
+.warning-content p {
+  font-size: 1.2rem;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+/* 縦画面時に表示（画面のアスペクト比が1未満の場合） */
+@media (orientation: portrait) {
+  body.touch-device #landscape-warning {
+    display: flex;
+  }
+}
+
+/* --- アニメーション --- */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes neon-glow {
+  from {
+    box-shadow: 0 0 10px rgba(255, 170, 0, 0.3), inset 0 0 5px rgba(255, 170, 0, 0.2);
+  }
+  to {
+    box-shadow: 0 0 25px rgba(255, 170, 0, 0.6), inset 0 0 10px rgba(255, 170, 0, 0.4);
+  }
+}
+
+@keyframes countdown-pulse {
+  0% { transform: scale(0.6); opacity: 0; }
+  20% { transform: scale(1); opacity: 1; }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes modal-enter {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes rotate-phone {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}

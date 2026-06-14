@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>3D Super Kart Racing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- 3Dレンダリング用キャンバス -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- HUDオーバーレイ -->
+  <div id="hud">
+    <!-- 左上: 順位 -->
+    <div id="rank-panel" class="hud-panel">
+      <span class="label">POS</span>
+      <span id="rank-value" class="value">1<span class="sub">/4</span></span>
+    </div>
+
+    <!-- 右上: 周回数 -->
+    <div id="lap-panel" class="hud-panel">
+      <span class="label">LAP</span>
+      <span id="lap-value" class="value">1<span class="sub">/3</span></span>
+    </div>
+
+    <!-- 中央上: アイテムスロット -->
+    <div id="item-panel">
+      <div id="item-slot">
+        <div id="item-slot-inner">
+          <img id="item-icon" src="" alt="Item" style="display: none;">
+          <div id="item-spinner">?</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右下: スピードメーター & ミニマップ -->
+    <div id="right-bottom-panel">
+      <div id="minimap-container">
+        <canvas id="minimap-canvas"></canvas>
+      </div>
+      <div id="speed-panel" class="hud-panel">
+        <span id="speed-value">0</span>
+        <span class="unit">km/h</span>
+      </div>
+    </div>
+
+    <!-- モバイル用コントロールパッド (タッチ操作用) -->
+    <div id="mobile-controls">
+      <!-- 左下: ステアリング -->
+      <div id="steering-controls">
+        <button id="btn-left" class="control-btn steer-btn">◀</button>
+        <button id="btn-right" class="control-btn steer-btn">▶</button>
+      </div>
+      <!-- 右下: アクション -->
+      <div id="action-controls">
+        <div class="action-row">
+          <button id="btn-item" class="control-btn action-btn item-btn">ITEM</button>
+          <button id="btn-drift" class="control-btn action-btn drift-btn">DRIFT</button>
+        </div>
+        <div class="action-row">
+          <button id="btn-brake" class="control-btn action-btn brake-btn">B</button>
+          <button id="btn-gas" class="control-btn action-btn gas-btn">A</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- スタートカウントダウン / メッセージ -->
+  <div id="overlay-screen">
+    <div id="countdown-text">READY</div>
+  </div>
+
+  <!-- リザルト画面 -->
+  <div id="result-screen" style="display: none;">
+    <div class="result-box">
+      <h1 id="result-title">FINISH!</h1>
+      <div class="result-stats">
+        <div class="stat-line">
+          <span>順位:</span>
+          <span id="final-rank" class="highlight">1位</span>
+        </div>
+        <div class="stat-line">
+          <span>タイム:</span>
+          <span id="final-time">00:00.00</span>
+        </div>
+      </div>
+      <button id="btn-restart">もう一度遊ぶ</button>
+    </div>
+  </div>
+
+  <!-- 横画面推奨警告 -->
+  <div id="landscape-warning">
+    <div class="warning-content">
+      <div class="phone-icon">📱</div>
+      <p>このゲームは横画面専用です。<br>端末を横向きに回転してください。</p>
+    </div>
+  </div>
+
+  <!-- ゲームのエントリポイント -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
