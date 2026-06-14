@@ -250,7 +250,7 @@ export class GameUI {
       // 抽選完了（獲得したアイテム画像を表示）
       this.itemSpinner.style.display = 'none';
       this.itemIcon.style.display = 'block';
-      this.itemIcon.src = `/${playerCart.activeItem}.png`;
+      this.itemIcon.src = `${playerCart.activeItem}.png`;
       this.itemSlot.style.borderColor = '#00f0ff';
       this.itemSlot.style.boxShadow = '0 0 15px rgba(0, 240, 255, 0.4)';
     }
