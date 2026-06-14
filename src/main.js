@@ -4,6 +4,7 @@ import { CartPhysics } from './physics.js';
 import { RivalAI } from './ai.js';
 import { GameUI } from './ui.js';
 import { ParticleSystem } from './particles.js';
+import { SoundManager } from './sound.js';
 
 class GameManager {
   constructor() {
@@ -14,7 +15,8 @@ class GameManager {
     this.initThree();
     this.world = new GameWorld(this.scene);
     this.particles = new ParticleSystem(this.scene);
-    this.ui = new GameUI(this.world);
+    this.sound = new SoundManager();
+    this.ui = new GameUI(this.world, this.sound);
     
     // アイテムオブジェクト (罠と弾)
     this.traps = [];
@@ -26,6 +28,12 @@ class GameManager {
     // イベントバインド
     window.addEventListener('resize', () => this.onWindowResize());
     document.getElementById('btn-restart').addEventListener('click', () => this.restartGame());
+    
+    // ユーザー操作によるWeb Audio初期化 (ブラウザ制限の解除)
+    const initSound = () => this.sound.init();
+    window.addEventListener('keydown', initSound, { once: true });
+    window.addEventListener('touchstart', initSound, { once: true });
+    window.addEventListener('mousedown', initSound, { once: true });
     
     // ゲームループ開始
     this.clock = new THREE.Clock();
@@ -226,14 +234,17 @@ class GameManager {
     if (item === 1) {
       // 1.png（ダッシュ）：マッシュルーム使用
       this.playerPhysics.useMushroom();
+      this.sound.playBoost();
       // ブーストエフェクトの初回バースト
       this.particles.spawnBoostFire(this.playerPhysics.position, this.playerPhysics.direction);
     } else if (item === 2) {
       // 2.png（設置罠）：バナナを後方にドロップ
       this.spawnTrap(this.playerPhysics);
+      this.sound.playDrop();
     } else if (item === 3) {
       // 3.png（直進弾）：こうらを前方にシュート
       this.spawnProjectile(this.playerPhysics);
+      this.sound.playThrow();
     }
     
     // 使用したのでスロットクリア
@@ -338,7 +349,7 @@ class GameManager {
     const playerPhys = this.playerPhysics;
     const allPhysics = [playerPhys, ...this.rivals.map(r => r.physics)];
     
-    // A. カートとコインの衝突判定
+     // A. カートとコインの衝突判定
     this.world.coins.forEach(coin => {
       if (!coin.active) return;
       
@@ -354,6 +365,7 @@ class GameManager {
           
           if (cart.isPlayer) {
             this.particles.spawnCoinPickup(coin.mesh.position);
+            this.sound.playCoin(); // コイン音
           }
         }
       });
@@ -372,6 +384,9 @@ class GameManager {
           box.respawnTimer = 5.0; // 5秒後にリスポーン
           
           this.particles.spawnBoxPop(box.mesh.position);
+          if (cart.isPlayer) {
+            this.sound.playItemBox(); // ボックス獲得音
+          }
           
           // すでにアイテムを持っていなければ抽選開始
           if (cart.activeItem === 0 && !cart.isRollingItem) {
@@ -383,6 +398,7 @@ class GameManager {
                 if (this.gameState === 'FINISHED') return;
                 playerPhys.activeItem = Math.floor(Math.random() * 3) + 1; // 1, 2, 3 のいずれか
                 playerPhys.isRollingItem = false;
+                this.sound.playItemGet(); // 確定ファンファーレ
               }, 1200);
             } else {
               // AIは即座に（あるいは短い遅延で）アイテム獲得
@@ -409,10 +425,12 @@ class GameManager {
           cart.position.addScaledVector(pushVec, limit - dist);
           
           // 衝突ペナルティ（速度減衰）
+          const prevSpeed = cart.speed;
           cart.speed *= 0.4;
-          if (cart.isPlayer && Math.abs(cart.speed) > 5.0) {
-            // スピンまではいかないが、火花を散らす
+          if (cart.isPlayer && Math.abs(prevSpeed) > 5.0) {
+            // スピンまではいかないが、火花を散らし、軽い衝突音
             this.particles.spawnSpinSparks(cart.position);
+            this.sound.playSpin(); // 衝突摩擦音
           }
         }
       });
@@ -431,6 +449,9 @@ class GameManager {
           
           cart.spinOut();
           this.particles.spawnSpinSparks(cart.position);
+          if (cart.isPlayer) {
+            this.sound.playSpin(); // スリップ・被弾音
+          }
         }
       });
     });
@@ -467,6 +488,9 @@ class GameManager {
           
           cart.spinOut();
           this.particles.spawnSpinSparks(cart.position);
+          if (cart.isPlayer || proj.owner === playerPhys) {
+            this.sound.playSpin(); // 爆発・被弾音
+          }
         }
       });
     });
@@ -614,6 +638,13 @@ class GameManager {
       textEl.className = ''; // クラスをクリア
       void textEl.offsetWidth; // リフローを強制してCSSアニメーションを再始動
       textEl.classList.add('pop', colorClass);
+      
+      // カウントダウン音再生
+      if (newText === '3' || newText === '2' || newText === '1') {
+        this.sound.playCountdownBeep(false);
+      } else if (newText === 'GO!') {
+        this.sound.playCountdownBeep(true);
+      }
     }
   }
   
@@ -679,6 +710,12 @@ class GameManager {
     // C. 共通更新
     this.world.update(dt, time);
     this.particles.update(dt);
+    
+    // エンジン音の更新
+    if (this.sound && this.sound.enabled) {
+      const speedRatio = Math.abs(this.playerPhysics.speed) / this.playerPhysics.maxSpeed;
+      this.sound.updateEngine(speedRatio, this.gameState === 'RACING');
+    }
     
     // ビジュアルモデルの同期
     this.updateVisuals();

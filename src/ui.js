@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 export class GameUI {
-  constructor(world) {
+  constructor(world, sound) {
     this.world = world;
+    this.sound = sound;
     
     // 入力状態のマッピング
     this.input = {
@@ -25,6 +26,8 @@ export class GameUI {
     // ミニマップ用キャンバスの初期化
     this.minimapCanvas = document.getElementById('minimap-canvas');
     this.minimapCtx = this.minimapCanvas.getContext('2d');
+    
+    this.lastRouletteFrame = -1;
     
     this.setupMinimapParams();
     this.setupKeyboardInput();
@@ -242,6 +245,14 @@ export class GameUI {
       // 抽選中（ルーレットアニメーション）
       this.itemIcon.style.display = 'none';
       this.itemSpinner.style.display = 'block';
+      
+      // 一定間隔（約110ms）でルーレット音を鳴らす
+      const frameIdx = Math.floor(time * 9);
+      if (this.lastRouletteFrame !== frameIdx) {
+        this.lastRouletteFrame = frameIdx;
+        this.sound.playRoulette();
+      }
+      
       // 高速で「？」を点滅、またはランダムで文字を変更
       const symbols = ['?', '!', '★', '✸'];
       this.itemSpinner.innerText = symbols[Math.floor(time * 15) % symbols.length];
