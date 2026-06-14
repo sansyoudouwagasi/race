@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="./assets/index-DDkqRzBX.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-DdOqLNjE.css">
+  <script type="module" crossorigin src="./assets/index-nK8L3eOL.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-D4GVcmmo.css">
 </head>
 <body>
   <!-- 3Dレンダリング用キャンバス -->
@@ -33,21 +33,21 @@
       </div>
     </div>
 
-    <!-- 右上: 周回数 -->
-    <div id="lap-panel" class="hud-panel">
-      <span class="label">LAP</span>
-      <span id="lap-value" class="value">1<span class="sub">/3</span></span>
-    </div>
-
-    <!-- 右下: スピードメーター & ミニマップ -->
-    <div id="right-bottom-panel">
+    <!-- 右上: 周回数 & ミニマップ -->
+    <div id="right-top-container">
       <div id="minimap-container">
         <canvas id="minimap-canvas"></canvas>
       </div>
-      <div id="speed-panel" class="hud-panel">
-        <span id="speed-value">0</span>
-        <span class="unit">km/h</span>
+      <div id="lap-panel" class="hud-panel">
+        <span class="label">LAP</span>
+        <span id="lap-value" class="value">1<span class="sub">/3</span></span>
       </div>
+    </div>
+
+    <!-- 右下: スピードメーター -->
+    <div id="speed-panel" class="hud-panel">
+      <span id="speed-value">0</span>
+      <span class="unit">km/h</span>
     </div>
 
     <!-- モバイル用コントロールパッド (タッチ操作用) -->
