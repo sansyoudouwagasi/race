@@ -1,257 +1,330 @@
 import * as THREE from 'three';
-import { GameWorld } from './world.js';
+import { GameWorld, COURSE_PRESETS } from './world.js';
 import { CartPhysics } from './physics.js';
-import { RivalAI } from './ai.js';
+import { RivalAI, RIVAL_PROFILES } from './ai.js';
 import { GameUI } from './ui.js';
 import { ParticleSystem } from './particles.js';
 import { SoundManager } from './sound.js';
+import { createCartMesh, updateCartVisual } from './cart.js';
 
 class GameManager {
   constructor() {
-    this.gameState = 'READY'; // READY, RACING, FINISHED
-    this.countdownTimer = 3.5;  // カウントダウン時間
+    this.gameState = 'MENU'; // MENU, READY, RACING, FINISHED
+    this.currentCourseId = 'sunshine';
+    this.countdownTimer = 3.6;
     this.elapsedTime = 0;
-    
+    this.rocketChargeTime = 0;
+    this.cameraMode = 0; // 0: 標準, 1: ダイナミック近接, 2: ワイド俯瞰
+    this.cameraShake = 0;
+    this.overlayHideTimer = null;
+    this.itemRollTimer = null;
+
     this.initThree();
-    this.world = new GameWorld(this.scene);
-    this.particles = new ParticleSystem(this.scene);
     this.sound = new SoundManager();
-    this.ui = new GameUI(this.world, this.sound);
-    
-    // アイテムオブジェクト (罠と弾)
+    this.particles = new ParticleSystem(this.scene);
+
     this.traps = [];
     this.projectiles = [];
-    
-    this.setupPlayers();
+    this.rivals = [];
+    this.playerMesh = null;
+    this.playerPhysics = null;
+
+    // ライティング参照
+    this.ambientLight = null;
+    this.dirLight = null;
+    this.hemiLight = null;
     this.setupLights();
-    
-    // イベントバインド
+
+    // 初期ワールド構築
+    this.world = new GameWorld(this.scene, this.currentCourseId);
+    this.applyCourseLighting(this.world.preset);
+
+    this.ui = new GameUI(this.world, this.sound, {
+      onToggleCamera: () => this.toggleCameraMode(),
+      onReturnMenu: () => this.returnToMenu()
+    });
+    this.ui.setHUDVisible(false);
+
+    this.setupPlayers();
+    this.setupMenuBindings();
+
     window.addEventListener('resize', () => this.onWindowResize());
-    document.getElementById('btn-restart').addEventListener('click', () => this.restartGame());
-    
-    // ユーザー操作によるWeb Audio初期化 (ブラウザ制限の解除)
-    const initSound = () => this.sound.init();
-    window.addEventListener('keydown', initSound, { once: true });
-    window.addEventListener('touchstart', initSound, { once: true });
-    window.addEventListener('mousedown', initSound, { once: true });
-    
-    // ゲームループ開始
+    document.getElementById('btn-restart').addEventListener('click', () => this.startRace(this.currentCourseId));
+    const btnResultMenu = document.getElementById('btn-result-menu');
+    if (btnResultMenu) {
+      btnResultMenu.addEventListener('click', () => this.returnToMenu());
+    }
+
     this.clock = new THREE.Clock();
     this.animate();
   }
-  
-  // Three.js シーン、カメラ、レンダラーの初期化
+
   initThree() {
-    const container = document.body;
-    
     this.scene = new THREE.Scene();
-    
-    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 2000);
-    
-    this.renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('game-canvas'), antialias: true });
+    this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.2, 2400);
+
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: document.getElementById('game-canvas'),
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    
-    // カメラの初期位置
-    this.camera.position.set(0, 10, 15);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
-  
-  // 晴れ渡る昼間のライティング設定
+
   setupLights() {
-    // 環境光 (明るめに設定して影を和らげる)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
-    this.scene.add(ambientLight);
-    
-    // 太陽光（昼間の強い光とシャドウマップ）
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.10);
-    dirLight.position.set(100, 150, 50);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 500;
-    
-    const d = 120;
-    dirLight.shadow.camera.left = -d;
-    dirLight.shadow.camera.right = d;
-    dirLight.shadow.camera.top = d;
-    dirLight.shadow.camera.bottom = -d;
-    
-    this.scene.add(dirLight);
-    
-    // 昼間の青空と明るい芝生をシミュレートする半球ライト
-    const hemiLight = new THREE.HemisphereLight(0xa3d2ff, 0x608c4b, 0.45);
-    hemiLight.position.set(0, 50, 0);
-    this.scene.add(hemiLight);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    this.scene.add(this.ambientLight);
+
+    this.dirLight = new THREE.DirectionalLight(0xfff8e6, 1.45);
+    this.dirLight.position.set(140, 210, 90);
+    this.dirLight.castShadow = true;
+    this.dirLight.shadow.mapSize.width = 2048;
+    this.dirLight.shadow.mapSize.height = 2048;
+    this.dirLight.shadow.camera.near = 10;
+    this.dirLight.shadow.camera.far = 520;
+    this.dirLight.shadow.bias = -0.0005;
+
+    const d = 95;
+    this.dirLight.shadow.camera.left = -d;
+    this.dirLight.shadow.camera.right = d;
+    this.dirLight.shadow.camera.top = d;
+    this.dirLight.shadow.camera.bottom = -d;
+
+    this.scene.add(this.dirLight);
+    this.scene.add(this.dirLight.target);
+
+    this.hemiLight = new THREE.HemisphereLight(0x87ceff, 0x4c8c42, 0.55);
+    this.scene.add(this.hemiLight);
   }
-  
-  // プレイヤーとAIライバルのカートを生成
+
+  applyCourseLighting(preset) {
+    this.ambientLight.color.setHex(preset.ambientColor);
+    this.ambientLight.intensity = preset.ambientIntensity;
+    this.dirLight.color.setHex(preset.sunColor);
+    this.dirLight.intensity = preset.sunIntensity;
+    this.hemiLight.color.setHex(preset.hemiSky);
+    this.hemiLight.groundColor.setHex(preset.hemiGround);
+    this.hemiLight.intensity = preset.hemiIntensity;
+    this.sunOffset = preset.sunPos.clone().normalize().multiplyScalar(170);
+  }
+
+  setupMenuBindings() {
+    const cards = document.querySelectorAll('.course-card');
+    cards.forEach((card) => {
+      card.addEventListener('click', () => {
+        const cid = card.dataset.course;
+        if (!COURSE_PRESETS[cid]) return;
+        cards.forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        if (cid !== this.currentCourseId) {
+          this.loadCourse(cid);
+        }
+      });
+    });
+
+    const startBtn = document.getElementById('btn-start-race');
+    if (startBtn) {
+      startBtn.addEventListener('click', () => {
+        this.sound.init();
+        this.startRace(this.currentCourseId);
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Enter' && this.gameState === 'MENU') {
+        this.sound.init();
+        this.startRace(this.currentCourseId);
+      }
+    });
+  }
+
+  loadCourse(courseId) {
+    this.currentCourseId = courseId;
+    this.clearDynamicEntities();
+    if (this.world) {
+      this.world.dispose();
+    }
+    this.world = new GameWorld(this.scene, courseId);
+    this.applyCourseLighting(this.world.preset);
+    this.ui.setWorld(this.world);
+    this.setupPlayers();
+  }
+
+  clearDynamicEntities() {
+    if (this.itemRollTimer) { clearTimeout(this.itemRollTimer); this.itemRollTimer = null; }
+    if (this.overlayHideTimer) { clearTimeout(this.overlayHideTimer); this.overlayHideTimer = null; }
+
+    this.traps.forEach(t => this.scene.remove(t.mesh));
+    this.projectiles.forEach(p => this.scene.remove(p.mesh));
+    this.traps = [];
+    this.projectiles = [];
+    this.particles.clear();
+
+    if (this.playerMesh) {
+      this.scene.remove(this.playerMesh);
+      this.playerMesh = null;
+    }
+    this.rivals.forEach(r => this.scene.remove(r.mesh));
+    this.rivals = [];
+  }
+
   setupPlayers() {
+    if (this.playerMesh) this.scene.remove(this.playerMesh);
+    this.rivals.forEach(r => this.scene.remove(r.mesh));
+    this.rivals = [];
+
     const startPoint = this.world.trackCurve.getPointAt(0);
     const tangent = this.world.trackCurve.getTangentAt(0).normalize();
     const up = new THREE.Vector3(0, 1, 0);
     const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
-    
-    // カートのグリッド配置（マリオカートのスタートグリッドのように前後・左右にずらす）
-    // プレイヤー（後列・右）
-    const playerPos = startPoint.clone()
-      .addScaledVector(tangent, -6)
-      .addScaledVector(normal, 2.5);
-    
-    this.playerPhysics = new CartPhysics(playerPos, true);
-    this.playerPhysics.direction = Math.atan2(tangent.x, tangent.z);
-    this.playerMesh = this.createCartMesh(0x00f0ff); // 青ネオンのプレイヤーカート
-    this.scene.add(this.playerMesh);
-    
-    // AIライバル (3台)
-    this.rivals = [];
-    const aiColors = [0x00ff66, 0xffcc00, 0xbd00ff]; // 緑、黄、紫
-    const aiGridOffsets = [
-      { t: 0, n: -2.5 },    // 前列・左
-      { t: -3, n: 2.5 },   // 2列目・右
-      { t: -9, n: -2.5 }    // 後列・左
+    const startDir = Math.atan2(tangent.x, tangent.z);
+
+    // 6台スタートグリッド（プレイヤーは4番手から追い上げスタートで燃える配置！）
+    const gridSlots = [
+      { t: -3.5, n: -3.0 },  // Rival 0
+      { t: -6.5, n: 3.0 },   // Rival 1
+      { t: -9.5, n: -3.0 },  // Rival 2
+      { t: -12.5, n: 3.0 },  // Player (4番グリッド)
+      { t: -15.5, n: -3.0 }, // Rival 3
+      { t: -18.5, n: 3.0 }   // Rival 4
     ];
-    
-    for (let i = 0; i < 3; i++) {
-      const offset = aiGridOffsets[i];
+
+    const pSlot = gridSlots[3];
+    const playerPos = startPoint.clone()
+      .addScaledVector(tangent, pSlot.t)
+      .addScaledVector(normal, pSlot.n);
+    this.playerPhysics = new CartPhysics(playerPos, true, 'YOU', 36.0);
+    this.playerPhysics.direction = startDir;
+    this.playerMesh = createCartMesh(0x00f0ff, 1, true);
+    this.scene.add(this.playerMesh);
+
+    const rivalSlotIndices = [0, 1, 2, 4, 5];
+    RIVAL_PROFILES.forEach((profile, i) => {
+      const slot = gridSlots[rivalSlotIndices[i]];
       const aiPos = startPoint.clone()
-        .addScaledVector(tangent, offset.t)
-        .addScaledVector(normal, offset.n);
-      
-      const aiPhysics = new CartPhysics(aiPos, false);
-      aiPhysics.direction = Math.atan2(tangent.x, tangent.z);
-      
-      const aiMesh = this.createCartMesh(aiColors[i]);
+        .addScaledVector(tangent, slot.t)
+        .addScaledVector(normal, slot.n);
+      const aiPhys = new CartPhysics(aiPos, false, profile.name, 35.0);
+      aiPhys.direction = startDir;
+      const aiMesh = createCartMesh(profile.color, i + 2, false);
       this.scene.add(aiMesh);
-      
-      const aiController = new RivalAI(aiPhysics, i, this.world);
-      
+      const aiCtrl = new RivalAI(aiPhys, i, this.world, profile);
+
       this.rivals.push({
-        physics: aiPhysics,
+        physics: aiPhys,
         mesh: aiMesh,
-        ai: aiController,
-        color: aiColors[i]
+        ai: aiCtrl,
+        color: profile.color,
+        name: profile.name
       });
+    });
+  }
+
+  startRace(courseId = this.currentCourseId) {
+    this.sound.init();
+    this.sound.stopBGM();
+    this.sound.setFinalLapMode(false);
+
+    document.getElementById('menu-screen').style.display = 'none';
+    document.getElementById('result-screen').style.display = 'none';
+    this.ui.setHUDVisible(true);
+
+    if (courseId !== this.currentCourseId) {
+      this.loadCourse(courseId);
+    } else {
+      this.clearDynamicEntities();
+      this.setupPlayers();
+      this.world.coins.forEach(c => { c.active = true; c.mesh.visible = true; c.respawnTimer = 0; });
+      this.world.itemBoxes.forEach(b => { b.active = true; b.mesh.visible = true; b.respawnTimer = 0; });
+    }
+
+    const overlay = document.getElementById('overlay-screen');
+    const textEl = document.getElementById('countdown-text');
+    overlay.style.display = 'flex';
+    textEl.textContent = 'READY';
+    textEl.className = 'pop color-ready';
+
+    this.gameState = 'READY';
+    this.countdownTimer = 3.6;
+    this.elapsedTime = 0;
+    this.rocketChargeTime = 0;
+    this.world.setStartLights(0);
+  }
+
+  returnToMenu() {
+    this.sound.stopBGM();
+    if (this.itemRollTimer) { clearTimeout(this.itemRollTimer); this.itemRollTimer = null; }
+    if (this.overlayHideTimer) { clearTimeout(this.overlayHideTimer); this.overlayHideTimer = null; }
+
+    this.gameState = 'MENU';
+    document.getElementById('result-screen').style.display = 'none';
+    document.getElementById('overlay-screen').style.display = 'none';
+    document.getElementById('menu-screen').style.display = 'flex';
+    this.ui.setHUDVisible(false);
+    this.setupPlayers();
+  }
+
+  toggleCameraMode() {
+    this.cameraMode = (this.cameraMode + 1) % 3;
+    const names = ['CAMERA: STANDARD', 'CAMERA: DYNAMIC CLOSE', 'CAMERA: WIDE VIEW'];
+    this.ui.showBanner(names[this.cameraMode], '#00f0ff', 1000);
+  }
+
+  addCameraShake(amount) {
+    this.cameraShake = Math.max(this.cameraShake, amount);
+  }
+
+  // 順位に応じたアイテム抽選テーブル（下位ほど強力なアイテムが出やすい！）
+  rollItemByRank(rank) {
+    const r = Math.random();
+    if (rank === 1) {
+      if (r < 0.55) return 2; // トラップ多め
+      if (r < 0.88) return 3; // ショット
+      return 1;               // ブースト
+    } else if (rank <= 3) {
+      if (r < 0.38) return 1;
+      if (r < 0.68) return 3;
+      if (r < 0.90) return 2;
+      return 4;               // スター（10%）
+    } else {
+      if (r < 0.45) return 1; // ダッシュ
+      if (r < 0.72) return 4; // 下位はスター高確率（27%）
+      if (r < 0.92) return 3; // ショット
+      return 2;
     }
   }
-  
-  // プログラムでかっこいい3Dカートモデルを構築
-  createCartMesh(themeColor) {
-    const cartGroup = new THREE.Group();
-    
-    // 1. シャーシ
-    const chassisGeo = new THREE.BoxGeometry(1.5, 0.3, 2.6);
-    const chassisMat = new THREE.MeshStandardMaterial({ color: 0x22222a, metalness: 0.8, roughness: 0.2 });
-    const chassis = new THREE.Mesh(chassisGeo, chassisMat);
-    chassis.position.y = 0.25;
-    chassis.castShadow = true;
-    chassis.receiveShadow = true;
-    cartGroup.add(chassis);
-    
-    // 2. メインボディカバー（テーマカラー）
-    const bodyGeo = new THREE.BoxGeometry(1.2, 0.45, 1.8);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: themeColor, metalness: 0.6, roughness: 0.1 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.set(0, 0.5, -0.1);
-    body.castShadow = true;
-    cartGroup.add(body);
-    
-    // 3. フロントノーズ
-    const noseGeo = new THREE.BoxGeometry(1.3, 0.2, 0.7);
-    const nose = new THREE.Mesh(noseGeo, bodyMat);
-    nose.position.set(0, 0.35, 1.15);
-    nose.castShadow = true;
-    cartGroup.add(nose);
-    
-    // 4. ホイール（4個）
-    const wheelGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.35, 16);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111115, roughness: 0.8 });
-    const wheelPositions = [
-      { x: -0.85, y: 0.3, z: 0.9 },   // 前左
-      { x: 0.85, y: 0.3, z: 0.9 },    // 前右
-      { x: -0.85, y: 0.3, z: -0.9 },  // 後左
-      { x: 0.85, y: 0.3, z: -0.9 }    // 後右
-    ];
-    
-    const wheels = [];
-    wheelPositions.forEach((pos, idx) => {
-      const wMesh = new THREE.Mesh(wheelGeo, wheelMat);
-      wMesh.rotation.z = Math.PI / 2;
-      wMesh.position.set(pos.x, pos.y, pos.z);
-      wMesh.castShadow = true;
-      cartGroup.add(wMesh);
-      wheels.push(wMesh);
-    });
-    cartGroup.userData.wheels = wheels; // 後輪の回転などで利用
-    
-    // 5. バケットシート（背もたれ）
-    const seatGeo = new THREE.BoxGeometry(0.7, 0.8, 0.5);
-    const seatMat = new THREE.MeshStandardMaterial({ color: 0x08080f, roughness: 0.6 });
-    const seat = new THREE.Mesh(seatGeo, seatMat);
-    seat.position.set(0, 0.8, -0.5);
-    seat.castShadow = true;
-    cartGroup.add(seat);
-    
-    // 6. リアスポイラー（ウイング）
-    const spoilerWingGeo = new THREE.BoxGeometry(1.5, 0.1, 0.5);
-    const wing = new THREE.Mesh(spoilerWingGeo, bodyMat);
-    wing.position.set(0, 1.5, -1.2);
-    wing.castShadow = true;
-    cartGroup.add(wing);
-    
-    const spoilerPostGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8);
-    const postMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9 });
-    const leftPost = new THREE.Mesh(spoilerPostGeo, postMat);
-    leftPost.position.set(-0.5, 1.15, -1.2);
-    leftPost.rotation.x = -0.2;
-    cartGroup.add(leftPost);
-    
-    const rightPost = new THREE.Mesh(spoilerPostGeo, postMat);
-    rightPost.position.set(0.5, 1.15, -1.2);
-    rightPost.rotation.x = -0.2;
-    cartGroup.add(rightPost);
-    
-    // 7. マフラー（排気管）
-    const exhaustGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.6, 8);
-    const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.9, roughness: 0.1 });
-    const exhaust = new THREE.Mesh(exhaustGeo, exhaustMat);
-    exhaust.position.set(0, 0.3, -1.2);
-    exhaust.rotation.x = Math.PI / 2;
-    cartGroup.add(exhaust);
-    cartGroup.userData.exhaust = exhaust; // パーティクル噴出座標の計算用
-    
-    return cartGroup;
-  }
-  
-  // プレイヤーがアイテムボタンを押したときのアクション
+
   usePlayerItem() {
     if (this.playerPhysics.activeItem === 0 || this.playerPhysics.isRollingItem) return;
-    
     const item = this.playerPhysics.activeItem;
-    
+
     if (item === 1) {
-      // 1.png（ダッシュ）：マッシュルーム使用
       this.playerPhysics.useMushroom();
       this.sound.playBoost();
-      // ブーストエフェクトの初回バースト
+      this.addCameraShake(0.32);
+      this.ui.showBanner('MATCHA BOOST!!', '#00ff88', 1100);
       this.particles.spawnBoostFire(this.playerPhysics.position, this.playerPhysics.direction);
     } else if (item === 2) {
-      // 2.png（設置罠）：バナナを後方にドロップ
       this.spawnTrap(this.playerPhysics);
       this.sound.playDrop();
     } else if (item === 3) {
-      // 3.png（直進弾）：こうらを前方にシュート
       this.spawnProjectile(this.playerPhysics);
       this.sound.playThrow();
+    } else if (item === 4) {
+      this.playerPhysics.useStar();
+      this.sound.playStar();
+      this.addCameraShake(0.35);
+      this.ui.showBanner('★ RAINBOW STAR! ★', '#ffea00', 1500);
     }
-    
-    // 使用したのでスロットクリア
     this.playerPhysics.activeItem = 0;
   }
-  
-  // AIがアイテムを使用するときのアクション
+
   useRivalItem(aiPhysics) {
     const item = aiPhysics.activeItem;
     if (item === 1) {
@@ -261,385 +334,480 @@ class GameManager {
       this.spawnTrap(aiPhysics);
     } else if (item === 3) {
       this.spawnProjectile(aiPhysics);
+    } else if (item === 4) {
+      aiPhysics.useStar();
     }
     aiPhysics.activeItem = 0;
   }
-  
-  // 設置罠のスポーン
+
   spawnTrap(cart) {
-    // カートの少し後方に設置
-    const dir = cart.direction + cart.driftAngle;
+    const dir = cart.direction;
     const backVec = new THREE.Vector3(-Math.sin(dir), 0, -Math.cos(dir)).normalize();
-    const trapPos = cart.position.clone().addScaledVector(backVec, 2.2);
-    trapPos.y = this.world.getTrackProgress(trapPos).point.y + 0.1; // 地面に這わせる
-    
-    // 罠の3Dモデル（赤いネオンのトゲトゲプレートのようなデザイン）
+    const trapPos = cart.position.clone().addScaledVector(backVec, 2.5);
+    const prog = this.world.getTrackProgress(trapPos);
+    trapPos.y = prog.point.y + 0.12;
+
     const trapGroup = new THREE.Group();
     trapGroup.position.copy(trapPos);
-    
-    const baseGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.15, 12);
-    const baseMat = new THREE.MeshStandardMaterial({
-      color: 0xff0055,
-      emissive: 0xff0055,
-      emissiveIntensity: 0.6,
-      roughness: 0.2
-    });
-    const base = new THREE.Mesh(baseGeo, baseMat);
+
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.8, 0.85, 0.2, 14),
+      new THREE.MeshStandardMaterial({
+        color: 0xff0055,
+        emissive: 0xff0044,
+        emissiveIntensity: 0.75,
+        roughness: 0.2
+      })
+    );
     trapGroup.add(base);
-    
-    // トゲ（飾り）
-    const spikeGeo = new THREE.ConeGeometry(0.12, 0.4, 8);
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.95, 0.08, 6, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffcc00 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.08;
+    trapGroup.add(ring);
+
+    const spikeGeo = new THREE.ConeGeometry(0.14, 0.5, 6);
     const spikeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     for (let i = 0; i < 6; i++) {
-      const angle = (i / 6) * Math.PI * 2;
+      const a = (i / 6) * Math.PI * 2;
       const spike = new THREE.Mesh(spikeGeo, spikeMat);
-      spike.position.set(Math.sin(angle) * 0.45, 0.2, Math.cos(angle) * 0.45);
-      spike.rotation.y = angle;
-      spike.rotation.x = 0.5;
+      spike.position.set(Math.sin(a) * 0.48, 0.26, Math.cos(a) * 0.48);
+      spike.rotation.y = a;
+      spike.rotation.x = 0.45;
       trapGroup.add(spike);
     }
-    
+
     this.scene.add(trapGroup);
-    
     this.traps.push({
       mesh: trapGroup,
       position: trapPos,
-      radius: 0.9,
+      radius: 1.0,
+      owner: cart,
+      graceTimer: 1.0, // 設置直後の自爆防止
       active: true
     });
   }
-  
-  // 直進弾のスポーン
+
   spawnProjectile(cart) {
-    const dir = cart.direction + cart.driftAngle;
+    const dir = cart.direction + cart.driftAngle * 0.35;
     const forward = new THREE.Vector3(Math.sin(dir), 0, Math.cos(dir)).normalize();
-    const spawnPos = cart.position.clone().addScaledVector(forward, 2.5);
-    spawnPos.y += 0.4;
-    
-    // 弾の3Dモデル（緑のネオン球体）
-    const projGeo = new THREE.SphereGeometry(0.5, 16, 16);
-    const projMat = new THREE.MeshStandardMaterial({
-      color: 0x00ff88,
-      emissive: 0x00ff88,
-      emissiveIntensity: 0.8,
-      roughness: 0.1
-    });
-    const projMesh = new THREE.Mesh(projGeo, projMat);
-    projMesh.position.copy(spawnPos);
-    projMesh.castShadow = true;
-    
-    this.scene.add(projMesh);
-    
-    // 進行方向ベクトル (カートの前方速度 + 弾固有スピード)
-    const bulletSpeed = 55.0; // 高速直進
-    const velocity = forward.clone().multiplyScalar(bulletSpeed);
-    
+    const spawnPos = cart.position.clone().addScaledVector(forward, 2.8);
+    spawnPos.y += 0.55;
+
+    const group = new THREE.Group();
+    group.position.copy(spawnPos);
+
+    const shell = new THREE.Mesh(
+      new THREE.SphereGeometry(0.55, 16, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xffaa00,
+        emissive: 0xff6600,
+        emissiveIntensity: 0.85,
+        roughness: 0.15
+      })
+    );
+    shell.scale.set(1.15, 0.82, 1.15);
+    shell.castShadow = true;
+    group.add(shell);
+
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(0.7, 0.08, 8, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffee55 })
+    );
+    halo.rotation.x = Math.PI / 2;
+    group.add(halo);
+
+    this.scene.add(group);
+
+    const bulletSpeed = 62.0;
     this.projectiles.push({
-      mesh: projMesh,
+      mesh: group,
       position: spawnPos,
-      velocity: velocity,
-      radius: 0.8,
-      life: 4.5, // 4.5秒で自動消滅
-      owner: cart // 自分が発射した弾には当たらないようにする
+      velocity: forward.clone().multiplyScalar(bulletSpeed),
+      speed: bulletSpeed,
+      radius: 0.9,
+      life: 5.5,
+      bouncesLeft: 2, // 壁で2回バウンド！
+      owner: cart
     });
   }
-  
-  // 衝突判定と各種インタラクション
-  handleCollisions(dt) {
+
+  handlePhysicsEvents(cart) {
+    const events = cart.consumeEvents();
+    if (!cart.isPlayer) return;
+
+    events.forEach((ev) => {
+      switch (ev.type) {
+        case 'hop':
+          this.sound.playHop();
+          break;
+        case 'drift_charge':
+          this.sound.playDriftCharge(ev.level);
+          break;
+        case 'mini_turbo': {
+          this.sound.playBoost();
+          this.addCameraShake(0.16 + ev.level * 0.08);
+          const labels = ['', 'MINI-TURBO!', 'SUPER MINI-TURBO!!', 'ULTRA MINI-TURBO!!!'];
+          const cols = ['', '#00f0ff', '#ff9900', '#e040ff'];
+          this.ui.showBanner(labels[ev.level], cols[ev.level], 1100);
+          break;
+        }
+        case 'rocket_start':
+          this.sound.playBoost();
+          this.addCameraShake(0.35);
+          this.ui.showBanner('🚀 ROCKET START!!', '#00ff88', 1500);
+          break;
+        case 'boost_pad':
+          this.sound.playBoost();
+          this.addCameraShake(0.22);
+          break;
+        case 'ramp_jump':
+          this.sound.playHop();
+          this.ui.showBanner('PRESS SPACE FOR TRICK!', '#ffdd00', 900);
+          break;
+        case 'trick_success':
+          this.sound.playTrick();
+          this.particles.spawnTrickBurst(cart.position);
+          this.ui.showBanner('✨ NICE TRICK! ✨', '#ffea00', 1100);
+          break;
+        case 'trick_boost':
+          this.sound.playBoost();
+          this.addCameraShake(0.28);
+          break;
+        case 'land':
+          if (ev.hard) this.addCameraShake(0.22);
+          break;
+        case 'wall_hit':
+          this.sound.playBump();
+          this.addCameraShake(0.18);
+          this.particles.spawnSpinSparks(cart.position);
+          break;
+        case 'lap':
+          if (ev.lap === 1) {
+            this.sound.playLapChime(false);
+            this.ui.showBanner('LAP 2 / 3', '#00f0ff', 1600);
+          } else if (ev.lap === 2) {
+            this.sound.playLapChime(true);
+            this.sound.setFinalLapMode(true);
+            this.ui.showBanner('🔥 FINAL LAP! 🔥', '#ff3366', 2000);
+          }
+          break;
+      }
+    });
+  }
+
+  handleInteractions(dt) {
     const playerPhys = this.playerPhysics;
     const allPhysics = [playerPhys, ...this.rivals.map(r => r.physics)];
-    
-     // A. カートとコインの衝突判定
+
+    // 1. ダッシュパネル判定
+    this.world.boostPads.forEach(pad => {
+      allPhysics.forEach(cart => {
+        if (cart.height > 1.2) return;
+        const dx = cart.position.x - pad.position.x;
+        const dz = cart.position.z - pad.position.z;
+        if (dx * dx + dz * dz < pad.radius * pad.radius) {
+          cart.triggerBoostPad();
+        }
+      });
+    });
+
+    // 2. ジャンプ台判定
+    this.world.ramps.forEach(ramp => {
+      allPhysics.forEach(cart => {
+        if (cart.height > 0.8 || cart.speed < 10) return;
+        const dx = cart.position.x - ramp.position.x;
+        const dz = cart.position.z - ramp.position.z;
+        if (dx * dx + dz * dz < ramp.radius * ramp.radius) {
+          cart.launchFromRamp();
+        }
+      });
+    });
+
+    // 3. スリップストリーム（前方のライバルのすぐ後ろを追走すると加速！）
+    let drafting = false;
+    if (playerPhys.speed > playerPhys.maxSpeed * 0.65 && playerPhys.spinTime <= 0) {
+      const pFwd = new THREE.Vector3(Math.sin(playerPhys.direction), 0, Math.cos(playerPhys.direction));
+      for (const r of this.rivals) {
+        const diff = r.physics.position.clone().sub(playerPhys.position);
+        diff.y = 0;
+        const dist = diff.length();
+        if (dist > 3.2 && dist < 15.5) {
+          const dot = pFwd.dot(diff.normalize());
+          if (dot > 0.93) {
+            drafting = true;
+            break;
+          }
+        }
+      }
+    }
+    if (drafting) {
+      playerPhys.slipstreamCharge += dt * 0.95;
+      playerPhys.isSlipstreaming = true;
+      if (Math.random() < 0.6) {
+        this.particles.spawnSlipstreamWind(playerPhys.position, playerPhys.direction);
+      }
+      if (playerPhys.slipstreamCharge >= 1.0) {
+        playerPhys.slipstreamCharge = 0;
+        playerPhys.triggerBoost(1.2, 1.32);
+        this.sound.playBoost();
+        this.addCameraShake(0.2);
+        this.ui.showBanner('💨 SLIPSTREAM BOOST!', '#7ce8ff', 1200);
+      }
+    } else {
+      playerPhys.slipstreamCharge = Math.max(0, playerPhys.slipstreamCharge - dt * 1.4);
+      playerPhys.isSlipstreaming = false;
+    }
+
+    // 4. コイン獲得
     this.world.coins.forEach(coin => {
       if (!coin.active) return;
-      
       allPhysics.forEach(cart => {
-        const dist = cart.position.distanceTo(coin.mesh.position);
-        if (dist < coin.radius + 1.2) {
-          // コイン獲得！
+        if (cart.position.distanceTo(coin.mesh.position) < coin.radius + 1.35) {
           coin.active = false;
           coin.mesh.visible = false;
-          coin.respawnTimer = 6.0; // 6秒後にリスポーン
-          
+          coin.respawnTimer = 6.5;
           cart.coins = Math.min(cart.coins + 1, 10);
-          
           if (cart.isPlayer) {
             this.particles.spawnCoinPickup(coin.mesh.position);
-            this.sound.playCoin(); // コイン音
+            this.sound.playCoin();
           }
         }
       });
     });
-    
-    // B. カートとアイテムボックスの衝突判定
+
+    // 5. アイテムボックス獲得
+    const standings = this.ui.getSortedStandings(playerPhys, this.rivals);
+    const getRank = (cart) => {
+      const idx = standings.findIndex(s => s.physics === cart);
+      return idx >= 0 ? idx + 1 : 3;
+    };
+
     this.world.itemBoxes.forEach(box => {
       if (!box.active) return;
-      
       allPhysics.forEach(cart => {
-        const dist = cart.position.distanceTo(box.mesh.position);
-        if (dist < box.radius + 1.2) {
-          // ボックス獲得！
+        if (cart.position.distanceTo(box.mesh.position) < box.radius + 1.3) {
           box.active = false;
           box.mesh.visible = false;
-          box.respawnTimer = 5.0; // 5秒後にリスポーン
-          
+          box.respawnTimer = 4.5;
+
           this.particles.spawnBoxPop(box.mesh.position);
-          if (cart.isPlayer) {
-            this.sound.playItemBox(); // ボックス獲得音
-          }
-          
-          // すでにアイテムを持っていなければ抽選開始
+          if (cart.isPlayer) this.sound.playItemBox();
+
           if (cart.activeItem === 0 && !cart.isRollingItem) {
             cart.isRollingItem = true;
-            
+            const rank = getRank(cart);
             if (cart.isPlayer) {
-              // プレイヤーはシャッフルUIを開始し、1.2秒後に獲得
-              setTimeout(() => {
-                if (this.gameState === 'FINISHED') return;
-                playerPhys.activeItem = Math.floor(Math.random() * 3) + 1; // 1, 2, 3 のいずれか
+              if (this.itemRollTimer) clearTimeout(this.itemRollTimer);
+              this.itemRollTimer = setTimeout(() => {
+                if (this.gameState !== 'RACING') return;
+                playerPhys.activeItem = this.rollItemByRank(rank);
                 playerPhys.isRollingItem = false;
-                this.sound.playItemGet(); // 確定ファンファーレ
-              }, 1200);
+                this.sound.playItemGet();
+              }, 1150);
             } else {
-              // AIは即座に（あるいは短い遅延で）アイテム獲得
-              cart.activeItem = Math.floor(Math.random() * 3) + 1;
+              cart.activeItem = this.rollItemByRank(rank);
               cart.isRollingItem = false;
             }
           }
         }
       });
     });
-    
-    // C. カートと木々の衝突判定 (簡易押し戻し)
-    this.world.trees.forEach(tree => {
-      allPhysics.forEach(cart => {
-        const dist = cart.position.distanceTo(tree.mesh.position);
-        const limit = tree.boundingRadius + 1.2;
-        if (dist < limit) {
-          // 押し戻しベクトル
-          const pushVec = cart.position.clone().sub(tree.mesh.position);
-          pushVec.y = 0;
-          pushVec.normalize();
-          
-          // 押し出す
-          cart.position.addScaledVector(pushVec, limit - dist);
-          
-          // 衝突ペナルティ（速度減衰）
-          const prevSpeed = cart.speed;
-          cart.speed *= 0.4;
-          if (cart.isPlayer && Math.abs(prevSpeed) > 5.0) {
-            // スピンまではいかないが、火花を散らし、軽い衝突音
-            this.particles.spawnSpinSparks(cart.position);
-            this.sound.playSpin(); // 衝突摩擦音
-          }
-        }
-      });
-    });
-    
-    // D. 設置罠とカートの衝突判定
+
+    // 6. トラップ判定
     this.traps.forEach(trap => {
       if (!trap.active) return;
-      
+      if (trap.graceTimer > 0) trap.graceTimer -= dt;
+      trap.mesh.rotation.y += 2.2 * dt;
+
       allPhysics.forEach(cart => {
-        const dist = cart.position.distanceTo(trap.position);
-        if (dist < trap.radius + 1.0) {
-          // 罠に被弾！スピンアウト
+        if (cart === trap.owner && trap.graceTimer > 0) return;
+        if (cart.position.distanceTo(trap.position) < trap.radius + 1.15) {
           trap.active = false;
           this.scene.remove(trap.mesh);
-          
-          cart.spinOut();
-          this.particles.spawnSpinSparks(cart.position);
-          if (cart.isPlayer) {
-            this.sound.playSpin(); // スリップ・被弾音
+          if (cart.spinOut()) {
+            this.particles.spawnSpinSparks(cart.position);
+            if (cart.isPlayer) {
+              this.sound.playSpin();
+              this.addCameraShake(0.42);
+              this.ui.showBanner('SLIPPED!!', '#ff3366', 1000);
+            } else if (trap.owner === playerPhys) {
+              this.sound.playCoin();
+              this.ui.showBanner('🎯 TRAP HIT!', '#00ff88', 1100);
+            }
           }
         }
       });
     });
-    // 非アクティブな罠のクリーンアップ
     this.traps = this.traps.filter(t => t.active);
-    
-    // E. 直進弾の移動更新 & コース境界判定 & カート衝突
+
+    // 7. ショット弾更新（軽誘導アシスト＋壁2回バウンド！）
     this.projectiles.forEach(proj => {
       if (proj.life <= 0) return;
-      
       proj.life -= dt;
-      proj.position.addScaledVector(proj.velocity, dt);
-      proj.mesh.position.copy(proj.position);
-      
-      // コース外壁衝突判定 (コースから離れすぎたら消滅)
-      const prog = this.world.getTrackProgress(proj.position);
-      if (prog.distanceToCenter > this.world.trackWidth * 0.9) {
-        proj.life = 0; // 壁衝突で消滅
-        this.particles.spawnBoxPop(proj.position); // 火花ポップで消滅表現
-        this.scene.remove(proj.mesh);
-        return;
+
+      // 緩やかなターゲット追尾アシスト（前方25m以内の最寄りライバルへ少しカーブ）
+      let nearest = null;
+      let nearestDist = 28;
+      const projDir = proj.velocity.clone().setY(0).normalize();
+      allPhysics.forEach(c => {
+        if (c === proj.owner) return;
+        const toC = c.position.clone().sub(proj.position).setY(0);
+        const d = toC.length();
+        if (d < nearestDist && projDir.dot(toC.normalize()) > 0.65) {
+          nearestDist = d;
+          nearest = c;
+        }
+      });
+      if (nearest) {
+        const desired = nearest.position.clone().sub(proj.position).setY(0).normalize();
+        projDir.lerp(desired, Math.min(1, dt * 3.8)).normalize();
+        proj.velocity.copy(projDir).multiplyScalar(proj.speed);
       }
-      
-      // カート衝突
+
+      proj.position.addScaledVector(proj.velocity, dt);
+      const prog = this.world.getTrackProgress(proj.position);
+      proj.position.y = prog.point.y + 0.55;
+      proj.mesh.position.copy(proj.position);
+      proj.mesh.rotation.y += 12 * dt;
+
+      // コース外壁で跳ね返る！
+      if (Math.abs(prog.lateralOffset) > prog.wallLimit) {
+        if (proj.bouncesLeft > 0) {
+          proj.bouncesLeft--;
+          const wallNormal = prog.normal.clone().multiplyScalar(-Math.sign(prog.lateralOffset));
+          proj.velocity.reflect(wallNormal).setY(0).normalize().multiplyScalar(proj.speed);
+          this.particles.spawnBoxPop(proj.position);
+        } else {
+          proj.life = 0;
+          this.particles.spawnBoxPop(proj.position);
+          this.scene.remove(proj.mesh);
+          return;
+        }
+      }
+
+      // カートへの直撃判定
       allPhysics.forEach(cart => {
-        // 発射主自身には当たらない（数秒の猶予を持たせるなどでも可だが、シンプルに完全除外）
         if (cart === proj.owner) return;
-        
-        const dist = cart.position.distanceTo(proj.position);
-        if (dist < proj.radius + 1.1) {
-          // 直撃！スピン
+        if (cart.position.distanceTo(proj.position) < proj.radius + 1.25) {
           proj.life = 0;
           this.scene.remove(proj.mesh);
-          
-          cart.spinOut();
-          this.particles.spawnSpinSparks(cart.position);
-          if (cart.isPlayer || proj.owner === playerPhys) {
-            this.sound.playSpin(); // 爆発・被弾音
+          if (cart.spinOut()) {
+            this.particles.spawnSpinSparks(cart.position);
+            if (cart.isPlayer) {
+              this.sound.playSpin();
+              this.addCameraShake(0.45);
+              this.ui.showBanner('💥 HIT!', '#ff3366', 1000);
+            } else if (proj.owner === playerPhys) {
+              this.sound.playTrick();
+              this.ui.showBanner(`🎯 DIRECT HIT! (${cart.name})`, '#ffea00', 1200);
+            }
           }
         }
       });
     });
-    
-    // 消滅した弾のクリーンアップ
-    this.projectiles.forEach(proj => {
-      if (proj.life <= 0) {
-        this.scene.remove(proj.mesh);
-      }
-    });
+
+    this.projectiles.forEach(p => { if (p.life <= 0) this.scene.remove(p.mesh); });
     this.projectiles = this.projectiles.filter(p => p.life > 0);
-    
-    // F. カート同士の衝突押し出し
+
+    // 8. カート同士の衝突（スター無敵中は相手を吹き飛ばす！）
     for (let i = 0; i < allPhysics.length; i++) {
       for (let j = i + 1; j < allPhysics.length; j++) {
         const c1 = allPhysics[i];
         const c2 = allPhysics[j];
         const dist = c1.position.distanceTo(c2.position);
-        const limit = 2.0; // 衝突半径
-        
-        if (dist < limit) {
-          // お互いに押し戻す
-          const pushVec = c1.position.clone().sub(c2.position);
-          pushVec.y = 0;
-          pushVec.normalize();
-          
+        const limit = 2.15;
+        if (dist < limit && dist > 0.001) {
+          const pushVec = c1.position.clone().sub(c2.position).setY(0).normalize();
           const overlap = limit - dist;
-          c1.position.addScaledVector(pushVec, overlap * 0.5);
-          c2.position.addScaledVector(pushVec, -overlap * 0.5);
-          
-          // 速度を少し相殺
-          const temp = c1.speed;
-          c1.speed = c2.speed * 0.85;
-          c2.speed = temp * 0.85;
+          c1.position.addScaledVector(pushVec, overlap * 0.52);
+          c2.position.addScaledVector(pushVec, -overlap * 0.52);
+
+          if (c1.starTime > 0 && c2.starTime <= 0) {
+            if (c2.spinOut()) {
+              this.particles.spawnSpinSparks(c2.position);
+              if (c1.isPlayer) { this.sound.playBump(); this.ui.showBanner('⭐ SMASH!', '#ffea00', 900); }
+            }
+          } else if (c2.starTime > 0 && c1.starTime <= 0) {
+            if (c1.spinOut()) {
+              this.particles.spawnSpinSparks(c1.position);
+              if (c1.isPlayer) { this.sound.playSpin(); this.addCameraShake(0.4); }
+            }
+          } else {
+            const avg = (c1.speed + c2.speed) * 0.5;
+            c1.speed = THREE.MathUtils.lerp(c1.speed, avg, 0.35);
+            c2.speed = THREE.MathUtils.lerp(c2.speed, avg, 0.35);
+            if (c1.isPlayer || c2.isPlayer) {
+              this.sound.playBump();
+              this.addCameraShake(0.14);
+            }
+          }
         }
       }
     }
   }
-  
-  // 追従カメラの更新
-  updateCamera(dt) {
-    const player = this.playerPhysics;
-    
-    // カートの後方位置を算出
-    // ドリフトやスピンのブレを加味した実際の実向き
-    const actualDir = player.direction + player.driftAngle;
-    
-    // カメラの理想の位置（カートの後方6.2m、上方2.5m）
-    const backVec = new THREE.Vector3(-Math.sin(actualDir), 0, -Math.cos(actualDir)).normalize();
-    const targetCamPos = player.position.clone()
-      .addScaledVector(backVec, 6.2)
-      .add(new THREE.Vector3(0, 2.5, 0));
-    
-    // カメラ位置を滑らかに補間
-    const cameraSpeed = 7.5; // カメラ追従速度係数
-    this.camera.position.lerp(targetCamPos, dt * cameraSpeed);
-    
-    // 注視点（カートの少し前方3.5m）
-    const forwardVec = new THREE.Vector3(Math.sin(actualDir), 0, Math.cos(actualDir)).normalize();
-    const lookTarget = player.position.clone().addScaledVector(forwardVec, 3.5);
-    
-    this.camera.lookAt(lookTarget);
-  }
-  
-  // 3Dモデルの位置・向きを物理ステートに同期
-  updateVisuals() {
-    // プレイヤー
-    this.playerMesh.position.copy(this.playerPhysics.position);
-    this.playerMesh.rotation.y = this.playerPhysics.direction + this.playerPhysics.driftAngle + this.playerPhysics.spinAngle;
-    
-    // 前輪の操舵角ビジュアル（ステアリングに合わせてタイヤを回転）
-    const wheels = this.playerMesh.userData.wheels;
-    if (wheels && wheels.length >= 2) {
-      let steerAngle = 0;
-      if (this.ui.input.left) steerAngle = 0.45;
-      if (this.ui.input.right) steerAngle = -0.45;
-      
-      // ドリフト中は前輪がドリフトと逆を向く（カウンター）
-      if (this.playerPhysics.isDrifting) {
-        steerAngle = -this.playerPhysics.driftDirection * 0.55;
-      }
-      
-      wheels[0].rotation.y = steerAngle; // 前左
-      wheels[1].rotation.y = steerAngle; // 前右
-    }
-    
-    // AIライバルたち
-    this.rivals.forEach(rival => {
-      rival.mesh.position.copy(rival.physics.position);
-      rival.mesh.rotation.y = rival.physics.direction + rival.physics.driftAngle + rival.physics.spinAngle;
-      
-      // AIの前輪操舵角
-      const aiWheels = rival.mesh.userData.wheels;
-      if (aiWheels && aiWheels.length >= 2) {
-        let steerAngle = 0;
-        if (rival.ai.input.left) steerAngle = 0.45;
-        if (rival.ai.input.right) steerAngle = -0.45;
-        
-        if (rival.physics.isDrifting) {
-          steerAngle = -rival.physics.driftDirection * 0.55;
-        }
-        aiWheels[0].rotation.y = steerAngle;
-        aiWheels[1].rotation.y = steerAngle;
-      }
-    });
-  }
-  
-  // カウントダウン処理
+
   handleCountdown(dt) {
     if (this.gameState !== 'READY') return;
-    
     this.countdownTimer -= dt;
+
+    // ロケットスタートのタイミングチャージ（残り 2.0s 〜 0.0s でアクセルを踏む！）
+    if (this.countdownTimer <= 2.1 && this.countdownTimer > 0 && this.ui.input.gas) {
+      this.rocketChargeTime += dt;
+      if (Math.random() < 0.35) {
+        this.particles.spawnBoostFire(this.playerPhysics.position, this.playerPhysics.direction);
+      }
+    }
+
     const overlay = document.getElementById('overlay-screen');
     const textEl = document.getElementById('countdown-text');
-    
+
     let newText = '';
     let colorClass = 'color-ready';
-    
+
     if (this.countdownTimer > 3.0) {
       newText = 'READY';
       colorClass = 'color-ready';
+      this.world.setStartLights(0);
     } else if (this.countdownTimer > 2.0) {
       newText = '3';
       colorClass = 'color-3';
+      this.world.setStartLights(1);
     } else if (this.countdownTimer > 1.0) {
       newText = '2';
       colorClass = 'color-2';
+      this.world.setStartLights(2);
     } else if (this.countdownTimer > 0.0) {
       newText = '1';
       colorClass = 'color-1';
+      this.world.setStartLights(3);
     } else {
       newText = 'GO!';
       colorClass = 'color-go';
+      this.world.setStartLights(4);
       this.gameState = 'RACING';
-      
-      // 1.2秒後にスタートオーバーレイを消す
-      setTimeout(() => {
+      this.sound.startBGM(false);
+
+      // ロケットスタート判定（タイミング良く踏んでいれば大成功！）
+      if (this.ui.input.gas && this.rocketChargeTime >= 0.45 && this.rocketChargeTime <= 2.15) {
+        this.playerPhysics.triggerRocketStart();
+      }
+
+      if (this.overlayHideTimer) clearTimeout(this.overlayHideTimer);
+      this.overlayHideTimer = setTimeout(() => {
         overlay.style.display = 'none';
-      }, 1200);
+      }, 1050);
     }
-    
-    // 文字が切り替わった瞬間にアニメーションを再トリガー
-    if (textEl.innerText !== newText) {
-      textEl.innerText = newText;
-      textEl.className = ''; // クラスをクリア
-      void textEl.offsetWidth; // リフローを強制してCSSアニメーションを再始動
+
+    if (textEl.textContent !== newText) {
+      textEl.textContent = newText;
+      textEl.className = '';
+      void textEl.offsetWidth;
       textEl.classList.add('pop', colorClass);
-      
-      // カウントダウン音再生
+
       if (newText === '3' || newText === '2' || newText === '1') {
         this.sound.playCountdownBeep(false);
       } else if (newText === 'GO!') {
@@ -647,216 +815,240 @@ class GameManager {
       }
     }
   }
-  
-  // ゲームのメインアニメーションループ
+
+  updateCamera(dt, time) {
+    const p = this.playerPhysics;
+
+    // 1. タイトル画面：コースを雄大に見渡すシネマティック空撮
+    if (this.gameState === 'MENU') {
+      const u = (time * 0.022) % 1.0;
+      const pt = this.world.trackCurve.getPointAt(u);
+      const ahead = this.world.trackCurve.getPointAt((u + 0.04) % 1.0);
+      this.camera.position.set(pt.x + Math.cos(time * 0.2) * 24, pt.y + 22, pt.z + Math.sin(time * 0.2) * 24);
+      this.camera.lookAt(ahead.x, ahead.y + 3, ahead.z);
+      this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 58, Math.min(1, dt * 4));
+      this.camera.updateProjectionMatrix();
+      return;
+    }
+
+    // 2. カウントダウン中：カートの前方斜めから後方へ回り込むシネマティック演出
+    if (this.gameState === 'READY') {
+      const progress = 1.0 - THREE.MathUtils.clamp(this.countdownTimer / 3.6, 0, 1);
+      const angle = p.direction + Math.PI + (1.0 - progress) * 1.45;
+      const dist = THREE.MathUtils.lerp(9.5, 6.8, progress);
+      const height = THREE.MathUtils.lerp(3.6, 2.7, progress);
+      const targetPos = new THREE.Vector3(
+        p.position.x + Math.sin(angle) * dist,
+        p.position.y + height,
+        p.position.z + Math.cos(angle) * dist
+      );
+      this.camera.position.lerp(targetPos, Math.min(1, dt * 6));
+      this.camera.lookAt(p.position.x, p.position.y + 1.1, p.position.z);
+      return;
+    }
+
+    // 3. ゴール後：ビクトリー旋回カメラ
+    if (this.gameState === 'FINISHED') {
+      const orbitA = time * 0.85;
+      const targetPos = new THREE.Vector3(
+        p.position.x + Math.sin(orbitA) * 7.8,
+        p.position.y + 3.2,
+        p.position.z + Math.cos(orbitA) * 7.8
+      );
+      this.camera.position.lerp(targetPos, Math.min(1, dt * 4));
+      this.camera.lookAt(p.position.x, p.position.y + 1.0, p.position.z);
+      return;
+    }
+
+    // 4. レース中カメラ（視点3種＋後方ミラー＋ブーストFOV＋シェイク）
+    const presets = [
+      { dist: 6.8, height: 2.75, look: 6.5, baseFov: 62 },
+      { dist: 5.2, height: 2.05, look: 8.0, baseFov: 68 },
+      { dist: 9.8, height: 4.8, look: 7.5, baseFov: 58 }
+    ];
+    const cfg = presets[this.cameraMode];
+    const dir = p.direction + p.driftAngle * 0.25;
+    const lookBack = this.ui.input.lookBack;
+
+    const offsetSign = lookBack ? 1 : -1;
+    const backVec = new THREE.Vector3(Math.sin(dir) * offsetSign, 0, Math.cos(dir) * offsetSign);
+
+    const speedRatio = THREE.MathUtils.clamp(p.speed / p.maxSpeed, 0, 1.5);
+    const dynamicDist = cfg.dist + (p.boostTime > 0 || p.starTime > 0 ? 1.15 : speedRatio * 0.45);
+
+    const targetCamPos = p.position.clone()
+      .addScaledVector(backVec, dynamicDist)
+      .add(new THREE.Vector3(0, cfg.height + p.height * 0.25, 0));
+
+    // カメラシェイク減衰
+    if (this.cameraShake > 0.005) {
+      targetCamPos.x += (Math.random() - 0.5) * this.cameraShake * 0.9;
+      targetCamPos.y += (Math.random() - 0.5) * this.cameraShake * 0.6;
+      this.cameraShake *= Math.pow(0.06, dt);
+    } else {
+      this.cameraShake = 0;
+    }
+
+    this.camera.position.lerp(targetCamPos, Math.min(1, dt * (lookBack ? 18 : 9.5)));
+
+    const lookDir = lookBack ? -1 : 1;
+    const forwardVec = new THREE.Vector3(Math.sin(dir) * lookDir, 0, Math.cos(dir) * lookDir);
+    const lookTarget = p.position.clone()
+      .addScaledVector(forwardVec, cfg.look)
+      .add(new THREE.Vector3(0, 1.05, 0));
+    this.camera.lookAt(lookTarget);
+
+    // ダイナミックFOV（加速＆ブースト時のスピード感！）
+    const boostBonus = (p.boostTime > 0 || p.starTime > 0) ? 13 : speedRatio * 5;
+    const targetFov = cfg.baseFov + boostBonus;
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, targetFov, Math.min(1, dt * 6));
+    this.camera.updateProjectionMatrix();
+  }
+
+  // シャドウカメラをプレイヤー周辺に追従させてコース全域でクッキリ影を描画
+  updateShadowFollow() {
+    if (!this.playerPhysics || !this.dirLight) return;
+    const p = this.playerPhysics.position;
+    this.dirLight.position.copy(p).add(this.sunOffset);
+    this.dirLight.target.position.copy(p);
+    this.dirLight.target.updateMatrixWorld();
+  }
+
+  handleParticles() {
+    const carts = [this.playerPhysics, ...this.rivals.map(r => r.physics)];
+    carts.forEach((c) => {
+      const dir = c.direction + c.driftAngle;
+      const right = new THREE.Vector3(Math.cos(dir), 0, -Math.sin(dir));
+      const back = new THREE.Vector3(-Math.sin(dir), 0, -Math.cos(dir));
+
+      // ドリフト火花
+      if (c.isDrifting && c.height <= 0.12) {
+        const lPos = c.position.clone().addScaledVector(right, -0.82).addScaledVector(back, 0.75);
+        const rPos = c.position.clone().addScaledVector(right, 0.82).addScaledVector(back, 0.75);
+        this.particles.spawnDriftSparks(lPos, dir, c.driftCharge);
+        if (c.isPlayer) this.particles.spawnDriftSparks(rPos, dir, c.driftCharge);
+      }
+
+      // ブースト・スター炎
+      if (c.boostTime > 0 || c.starTime > 0) {
+        const tailPos = c.position.clone().addScaledVector(back, 1.45).add(new THREE.Vector3(0, 0.35, 0));
+        this.particles.spawnBoostFire(tailPos, dir, c.starTime > 0);
+      }
+
+      // オフロード走行の草・土煙
+      if (c.onGrass && c.speed > 6 && c.height <= 0.1 && Math.random() < (c.isPlayer ? 0.55 : 0.2)) {
+        const tailPos = c.position.clone().addScaledVector(back, 1.1);
+        this.particles.spawnOffroadDust(tailPos, dir, this.world.theme);
+      }
+    });
+
+    if (this.gameState === 'FINISHED' && Math.random() < 0.35) {
+      this.particles.spawnConfetti(this.playerPhysics.position);
+    }
+  }
+
+  finishRace() {
+    this.gameState = 'FINISHED';
+    this.playerPhysics.finished = true;
+    this.playerPhysics.finishTime = this.elapsedTime;
+    this.sound.stopBGM();
+
+    const standings = this.ui.getSortedStandings(this.playerPhysics, this.rivals);
+    const rank = standings.findIndex(s => s.isPlayer) + 1;
+    this.sound.playFinishFanfare(rank === 1);
+
+    this.ui.renderResultScreen(this.playerPhysics, this.rivals, this.elapsedTime);
+    document.getElementById('result-screen').style.display = 'flex';
+  }
+
   animate() {
     requestAnimationFrame(() => this.animate());
-    
+
     let dt = this.clock.getDelta();
-    // 極端なフレーム落ち時の物理貫通を防止 (dt制限)
-    if (dt > 0.1) dt = 0.1;
-    
+    if (dt > 0.08) dt = 0.08;
     const time = this.clock.getElapsedTime();
-    
-    // A. カウントダウンの処理
+
     if (this.gameState === 'READY') {
       this.handleCountdown(dt);
-      
-      // カウントダウン中も、AIやプレイヤーに「停止入力（擬似）」を与えて物理更新
-      const stoppedInput = { gas: false, brake: false, left: false, right: false, drift: false, item: false };
-      this.playerPhysics.update(dt, stoppedInput, this.world);
-      this.rivals.forEach(r => r.physics.update(dt, stoppedInput, this.world));
+      const stopped = { gas: false, brake: false, left: false, right: false, drift: false, item: false };
+      this.playerPhysics.update(dt, stopped, this.world, 0);
+      this.rivals.forEach(r => r.physics.update(dt, stopped, this.world, 0));
+      this.handlePhysicsEvents(this.playerPhysics);
     }
-    
-    // B. レース中 / ゴール後のメイン処理
+
     if (this.gameState === 'RACING' || this.gameState === 'FINISHED') {
-      this.elapsedTime += dt;
-      
-      // プレイヤーの更新
-      const pInput = this.gameState === 'RACING' ? this.ui.input : { gas: false, brake: false, left: false, right: false, drift: false, item: false };
-      this.playerPhysics.update(dt, pInput, this.world);
-      
-      // プレイヤーのアイテム使用判定
+      if (this.gameState === 'RACING') this.elapsedTime += dt;
+
+      const pInput = this.gameState === 'RACING'
+        ? this.ui.input
+        : { gas: false, brake: false, left: false, right: false, drift: false, item: false };
+
+      this.playerPhysics.update(dt, pInput, this.world, this.elapsedTime);
+      this.handlePhysicsEvents(this.playerPhysics);
+
       if (this.gameState === 'RACING' && this.ui.input.item) {
         this.usePlayerItem();
-        this.ui.input.item = false; // 押しっぱなし防止
+        this.ui.input.item = false;
       }
-      
-      // AIライバルの更新
+
       this.rivals.forEach(rival => {
-        // AIはゴール後も自動で走り続ける
-        rival.ai.update(dt, this.playerPhysics);
-        rival.physics.update(dt, rival.ai.input, this.world);
-        
-        // AIのアイテム使用処理
+        rival.ai.update(dt, this.playerPhysics, this.traps);
+        rival.physics.update(dt, rival.ai.input, this.world, this.elapsedTime);
+        rival.physics.consumeEvents();
+        if (!rival.physics.finished && rival.physics.lap >= 3) {
+          rival.physics.finished = true;
+          rival.physics.finishTime = this.elapsedTime;
+        }
         if (rival.ai.input.item) {
           this.useRivalItem(rival.physics);
           rival.ai.input.item = false;
         }
       });
-      
-      // 衝突判定の更新
-      this.handleCollisions(dt);
-      
-      // パーティクル放出
-      this.handleParticles(dt);
-      
-      // ゴール判定 (プレイヤーが3周完走)
+
+      this.handleInteractions(dt);
+      this.handleParticles();
+
       if (this.gameState === 'RACING' && this.playerPhysics.lap >= 3) {
         this.finishRace();
       }
     }
-    
-    // C. 共通更新
+
+    // ワールド・パーティクル更新
     this.world.update(dt, time);
     this.particles.update(dt);
-    
-    // エンジン音の更新
+
+    // エンジン＆ドリフト音更新
     if (this.sound && this.sound.enabled) {
-      const speedRatio = Math.abs(this.playerPhysics.speed) / this.playerPhysics.maxSpeed;
-      this.sound.updateEngine(speedRatio, this.gameState === 'RACING');
+      const isRevving = this.gameState === 'READY' && this.ui.input.gas;
+      const ratio = isRevving
+        ? 0.55 + Math.sin(time * 28) * 0.1
+        : Math.abs(this.playerPhysics.speed) / this.playerPhysics.maxSpeed;
+      const active = this.gameState === 'RACING' || isRevving;
+      const boosting = this.playerPhysics.boostTime > 0 || this.playerPhysics.starTime > 0;
+      this.sound.updateEngine(
+        ratio,
+        active,
+        boosting,
+        this.gameState === 'RACING' && this.playerPhysics.isDrifting && this.playerPhysics.height <= 0.15,
+        this.playerPhysics.driftCharge
+      );
     }
-    
-    // ビジュアルモデルの同期
-    this.updateVisuals();
-    
-    // カメラの追従
-    this.updateCamera(dt);
-    
-    // HUD UIの同期更新
-    this.ui.updateHUD(this.playerPhysics, this.rivals.map(r => r.physics), time);
-    
-    // 描画実行
+
+    // カートビジュアル更新
+    const pVisualInput = this.gameState === 'RACING' ? this.ui.input : { left: false, right: false, brake: false };
+    updateCartVisual(this.playerMesh, this.playerPhysics, pVisualInput, dt, time);
+    this.rivals.forEach(r => updateCartVisual(r.mesh, r.physics, r.ai.input, dt, time));
+
+    this.updateShadowFollow();
+    this.updateCamera(dt, time);
+
+    if (this.gameState !== 'MENU') {
+      this.ui.updateHUD(this.playerPhysics, this.rivals, time, this.elapsedTime);
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
-  
-  // パーティクル発生制御
-  handleParticles(dt) {
-    // プレイヤーのドリフト火花
-    if (this.playerPhysics.isDrifting && this.playerPhysics.height <= 0.1) {
-      // 左右の後輪付近から火花
-      const dir = this.playerPhysics.direction;
-      const right = new THREE.Vector3(Math.cos(dir), 0, -Math.sin(dir)).normalize();
-      
-      const leftSparkPos = this.playerPhysics.position.clone().addScaledVector(right, -0.75);
-      const rightSparkPos = this.playerPhysics.position.clone().addScaledVector(right, 0.75);
-      
-      this.particles.spawnDriftSparks(leftSparkPos, dir, this.playerPhysics.driftCharge);
-      this.particles.spawnDriftSparks(rightSparkPos, dir, this.playerPhysics.driftCharge);
-    }
-    
-    // AIのドリフト火花
-    this.rivals.forEach(r => {
-      if (r.physics.isDrifting && r.physics.height <= 0.1) {
-        const dir = r.physics.direction;
-        const right = new THREE.Vector3(Math.cos(dir), 0, -Math.sin(dir)).normalize();
-        const leftSparkPos = r.physics.position.clone().addScaledVector(right, -0.75);
-        this.particles.spawnDriftSparks(leftSparkPos, dir, r.physics.driftCharge);
-      }
-    });
-    
-    // プレイヤーのマフラーブースト炎
-    if (this.playerPhysics.boostTime > 0) {
-      const dir = this.playerPhysics.direction + this.playerPhysics.driftAngle;
-      const back = new THREE.Vector3(-Math.sin(dir), 0, -Math.cos(dir)).normalize();
-      const tailPos = this.playerPhysics.position.clone().addScaledVector(back, 1.25).add(new THREE.Vector3(0, 0.3, 0));
-      this.particles.spawnBoostFire(tailPos, dir);
-    }
-    
-    // AIのブースト炎
-    this.rivals.forEach(r => {
-      if (r.physics.boostTime > 0) {
-        const dir = r.physics.direction + r.physics.driftAngle;
-        const back = new THREE.Vector3(-Math.sin(dir), 0, -Math.cos(dir)).normalize();
-        const tailPos = r.physics.position.clone().addScaledVector(back, 1.25).add(new THREE.Vector3(0, 0.3, 0));
-        this.particles.spawnBoostFire(tailPos, dir);
-      }
-    });
-  }
-  
-  // レース終了処理
-  finishRace() {
-    this.gameState = 'FINISHED';
-    
-    // 最終タイム算出
-    const minutes = Math.floor(this.elapsedTime / 60);
-    const seconds = Math.floor(this.elapsedTime % 60);
-    const ms = Math.floor((this.elapsedTime % 1) * 100);
-    const timeStr = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
-    
-    // 最終順位
-    const finalRank = this.ui.updateRankings(this.playerPhysics, this.rivals.map(r => r.physics));
-    
-    // 結果表示
-    document.getElementById('final-rank').innerText = `${finalRank}位`;
-    document.getElementById('final-time').innerText = timeStr;
-    document.getElementById('result-screen').style.display = 'flex';
-  }
-  
-  // リスタート処理
-  restartGame() {
-    document.getElementById('result-screen').style.display = 'none';
-    document.getElementById('overlay-screen').style.display = 'flex';
-    const textEl = document.getElementById('countdown-text');
-    textEl.innerText = 'READY';
-    textEl.className = 'pop color-ready';
-    
-    this.gameState = 'READY';
-    this.countdownTimer = 3.5;
-    this.elapsedTime = 0;
-    
-    // アイテムオブジェクト初期化
-    this.traps.forEach(t => this.scene.remove(t.mesh));
-    this.projectiles.forEach(p => this.scene.remove(p.mesh));
-    this.traps = [];
-    this.projectiles = [];
-    this.particles.clear();
-    
-    // プレイヤー再配置
-    const startPoint = this.world.trackCurve.getPointAt(0);
-    const tangent = this.world.trackCurve.getTangentAt(0).normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    const normal = new THREE.Vector3().crossVectors(tangent, up).normalize();
-    
-    const playerPos = startPoint.clone()
-      .addScaledVector(tangent, -6)
-      .addScaledVector(normal, 2.5);
-    
-    this.playerPhysics = new CartPhysics(playerPos, true);
-    this.playerPhysics.direction = Math.atan2(tangent.x, tangent.z);
-    
-    // AI再配置
-    const aiGridOffsets = [
-      { t: 0, n: -2.5 },
-      { t: -3, n: 2.5 },
-      { t: -9, n: -2.5 }
-    ];
-    
-    this.rivals.forEach((rival, idx) => {
-      const offset = aiGridOffsets[idx];
-      const aiPos = startPoint.clone()
-        .addScaledVector(tangent, offset.t)
-        .addScaledVector(normal, offset.n);
-      
-      rival.physics = new CartPhysics(aiPos, false);
-      rival.physics.direction = Math.atan2(tangent.x, tangent.z);
-      rival.ai = new RivalAI(rival.physics, idx, this.world);
-    });
-    
-    // コイン・アイテムボックスの活性化
-    this.world.coins.forEach(c => {
-      c.active = true;
-      c.mesh.visible = true;
-      c.respawnTimer = 0;
-    });
-    this.world.itemBoxes.forEach(b => {
-      b.active = true;
-      b.mesh.visible = true;
-      b.respawnTimer = 0;
-    });
-  }
-  
-  // ウィンドウリサイズハンドラ
+
   onWindowResize() {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
@@ -864,7 +1056,6 @@ class GameManager {
   }
 }
 
-// 起動
 window.addEventListener('DOMContentLoaded', () => {
   new GameManager();
 });

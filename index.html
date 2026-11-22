@@ -3,25 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>3D Super Kart Racing</title>
+  <title>SUPER KART GP 3D</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- 3Dレンダリング用キャンバス -->
+  <!-- 3Dレンダリングキャンバス -->
   <canvas id="game-canvas"></canvas>
+
+  <!-- ブースト時スピードライン（集中線エフェクト） -->
+  <div id="speed-lines"></div>
+
+  <!-- タイトル＆コース選択画面 -->
+  <div id="menu-screen">
+    <div class="menu-box">
+      <div class="menu-badge">GRAND PRIX EDITION</div>
+      <h1 class="menu-title">SUPER KART <span>GP 3D</span></h1>
+      <p class="menu-sub">3段階ドリフト・ジャンプトリック・スリップストリームでライバルをぶっちぎれ！</p>
+
+      <div class="course-grid">
+        <button class="course-card selected" data-course="sunshine">
+          <div class="course-thumb thumb-sunshine"></div>
+          <div class="course-info">
+            <span class="course-name">SUNSHINE CIRCUIT</span>
+            <span class="course-desc">海と緑の爽快サーキット ★☆☆</span>
+          </div>
+        </button>
+        <button class="course-card" data-course="sunset">
+          <div class="course-thumb thumb-sunset"></div>
+          <div class="course-info">
+            <span class="course-name">SUNSET CANYON</span>
+            <span class="course-desc">夕焼けの渓谷・大ジャンプ ★★☆</span>
+          </div>
+        </button>
+        <button class="course-card" data-course="neon">
+          <div class="course-thumb thumb-neon"></div>
+          <div class="course-info">
+            <span class="course-name">NEON METROPOLIS</span>
+            <span class="course-desc">光輝く夜景ハイウェイ ★★★</span>
+          </div>
+        </button>
+      </div>
+
+      <button id="btn-start-race" class="primary-cta">RACE START!</button>
+
+      <div class="controls-guide">
+        <span><kbd>W</kbd>/<kbd>↑</kbd> アクセル</span>
+        <span><kbd>A</kbd><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> ハンドル</span>
+        <span><kbd>SPACE</kbd> ドリフト &amp; 空中トリック</span>
+        <span><kbd>SHIFT</kbd>/<kbd>E</kbd> アイテム</span>
+        <span><kbd>C</kbd> 視点切替 / <kbd>B</kbd> 後方確認</span>
+      </div>
+    </div>
+  </div>
 
   <!-- HUDオーバーレイ -->
   <div id="hud">
-    <!-- 左上: 順位 & アイテムスロット -->
+    <!-- 左上: 順位・コイン・アイテム -->
     <div id="left-top-container">
       <div id="rank-panel" class="hud-panel">
         <span class="label">POS</span>
-        <span id="rank-value" class="value">1<span class="sub">/4</span></span>
+        <span id="rank-value" class="value">4<span class="sub">th / 6</span></span>
       </div>
-      
+
       <div id="item-panel">
         <div id="item-slot">
           <div id="item-slot-inner">
@@ -29,29 +75,53 @@
             <div id="item-spinner">?</div>
           </div>
         </div>
+        <div id="item-badge">EMPTY</div>
+      </div>
+
+      <div id="coin-panel" class="hud-panel">
+        <span class="label">COINS</span>
+        <span class="coin-row"><span class="coin-dot">●</span><span id="coin-value">0/10</span></span>
       </div>
     </div>
 
-    <!-- 右上: 周回数 & ミニマップ -->
+    <!-- 右上: ユーティリティボタン・ミニマップ・LAP＆タイマー -->
     <div id="right-top-container">
+      <div class="hud-tools">
+        <button id="btn-mute" class="icon-btn" title="サウンド ON/OFF (M)">🔊</button>
+        <button id="btn-camera" class="icon-btn" title="カメラ視点切替 (C)">🎥</button>
+        <button id="btn-back-menu" class="icon-btn" title="コース選択に戻る">🏠</button>
+      </div>
       <div id="minimap-container">
         <canvas id="minimap-canvas"></canvas>
       </div>
       <div id="lap-panel" class="hud-panel">
         <span class="label">LAP</span>
         <span id="lap-value" class="value">1<span class="sub">/3</span></span>
+        <span id="timer-value" class="timer-sub">00:00.00</span>
       </div>
     </div>
 
-    <!-- 右下: スピードメーター -->
-    <div id="speed-panel" class="hud-panel">
-      <span id="speed-value">0</span>
-      <span class="unit">km/h</span>
+    <!-- 中央上部: アクション通知 & 逆走警告 -->
+    <div id="center-alerts">
+      <div id="action-banner"></div>
+      <div id="wrong-way" style="display: none;">⚠ WRONG WAY! ⚠</div>
     </div>
 
-    <!-- モバイル用コントロールパッド (タッチ操作用) -->
+    <!-- 右下: スピードメーター＆ドリフトチャージ -->
+    <div id="speed-panel" class="hud-panel">
+      <div class="speed-header">
+        <span id="speed-value">0</span>
+        <span class="unit">km/h</span>
+      </div>
+      <div class="meter-track"><div id="speed-bar-fill"></div></div>
+      <div class="drift-meter-row">
+        <span id="drift-label">TURBO</span>
+        <div class="meter-track thin"><div id="drift-bar-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- モバイル用コントロールパッド -->
     <div id="mobile-controls">
-      <!-- 左下: ステアリング & アイテム・ドリフト -->
       <div id="left-controls">
         <div class="action-row">
           <button id="btn-item" class="control-btn action-btn item-btn">ITEM</button>
@@ -62,7 +132,6 @@
           <button id="btn-right" class="control-btn steer-btn">▶</button>
         </div>
       </div>
-      <!-- 右下: アクセル & ブレーキ -->
       <div id="right-controls" class="action-row">
         <button id="btn-brake" class="control-btn action-btn brake-btn">B</button>
         <button id="btn-gas" class="control-btn action-btn gas-btn">A</button>
@@ -70,8 +139,8 @@
     </div>
   </div>
 
-  <!-- スタートカウントダウン / メッセージ -->
-  <div id="overlay-screen">
+  <!-- スタートカウントダウン -->
+  <div id="overlay-screen" style="display: none;">
     <div id="countdown-text">READY</div>
   </div>
 
@@ -79,17 +148,27 @@
   <div id="result-screen" style="display: none;">
     <div class="result-box">
       <h1 id="result-title">FINISH!</h1>
-      <div class="result-stats">
-        <div class="stat-line">
-          <span>順位:</span>
-          <span id="final-rank" class="highlight">1位</span>
+      <div class="result-summary">
+        <div class="summary-chip">
+          <span class="chip-label">RANK</span>
+          <span id="final-rank" class="chip-val highlight">1位</span>
         </div>
-        <div class="stat-line">
-          <span>タイム:</span>
-          <span id="final-time">00:00.00</span>
+        <div class="summary-chip">
+          <span class="chip-label">TIME</span>
+          <span id="final-time" class="chip-val mono">00:00.00</span>
+        </div>
+        <div class="summary-chip">
+          <span class="chip-label">BEST LAP</span>
+          <span id="final-best-lap" class="chip-val mono">--:--.--</span>
         </div>
       </div>
-      <button id="btn-restart">もう一度遊ぶ</button>
+
+      <div id="standings-list"></div>
+
+      <div class="result-actions">
+        <button id="btn-restart" class="primary-cta">もう一度走る</button>
+        <button id="btn-result-menu" class="secondary-cta">コース選択へ</button>
+      </div>
     </div>
   </div>
 
@@ -101,7 +180,6 @@
     </div>
   </div>
 
-  <!-- ゲームのエントリポイント -->
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
