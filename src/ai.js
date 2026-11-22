@@ -51,19 +51,8 @@ export class RivalAI {
       );
     }
 
-    // 近くの前方ブーストパッドがあれば狙いにいく
-    let desiredOffset = this.lateralOffset;
-    for (let i = 0; i < this.world.boostPads.length; i++) {
-      const pad = this.world.boostPads[i];
-      let du = pad.u - u;
-      if (du < -0.5) du += 1.0;
-      if (du > 0.005 && du < 0.045) {
-        desiredOffset = pad.offset;
-        break;
-      }
-    }
-
     // 近くの罠を避ける
+    let desiredOffset = this.lateralOffset;
     for (let i = 0; i < traps.length; i++) {
       const trap = traps[i];
       if (!trap.active) continue;

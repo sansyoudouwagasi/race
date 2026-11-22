@@ -36,15 +36,6 @@ export const COURSE_PRESETS = {
       new THREE.Vector3(-165, 1, 110),
       new THREE.Vector3(-85, 0, 48),
     ],
-    boostPads: [
-      { u: 0.06, offset: 0 },
-      { u: 0.17, offset: -2.2 },
-      { u: 0.34, offset: 2.0 },
-      { u: 0.49, offset: 0 },
-      { u: 0.64, offset: -2.4 },
-      { u: 0.78, offset: 2.2 },
-      { u: 0.91, offset: 0 },
-    ],
     ramps: [
       { u: 0.23, offset: 0 },
       { u: 0.56, offset: 0 },
@@ -84,15 +75,6 @@ export const COURSE_PRESETS = {
       new THREE.Vector3(-215, 10, 95),
       new THREE.Vector3(-110, 3, 95),
       new THREE.Vector3(-60, 0, 30),
-    ],
-    boostPads: [
-      { u: 0.05, offset: 0 },
-      { u: 0.20, offset: 2.0 },
-      { u: 0.36, offset: -2.0 },
-      { u: 0.48, offset: 0 },
-      { u: 0.62, offset: 2.2 },
-      { u: 0.77, offset: -1.8 },
-      { u: 0.92, offset: 0 },
     ],
     ramps: [
       { u: 0.14, offset: 0 },
@@ -134,16 +116,6 @@ export const COURSE_PRESETS = {
       new THREE.Vector3(-140, 4, 130),
       new THREE.Vector3(-75, 0, 55),
     ],
-    boostPads: [
-      { u: 0.05, offset: 0 },
-      { u: 0.15, offset: -2.0 },
-      { u: 0.28, offset: 2.0 },
-      { u: 0.43, offset: 0 },
-      { u: 0.57, offset: -2.2 },
-      { u: 0.72, offset: 2.0 },
-      { u: 0.85, offset: 0 },
-      { u: 0.94, offset: 0 },
-    ],
     ramps: [
       { u: 0.21, offset: 0 },
       { u: 0.52, offset: 0 },
@@ -174,14 +146,12 @@ export class GameWorld {
     this.coins = [];
     this.itemBoxes = [];
     this.trees = [];
-    this.boostPads = [];
     this.ramps = [];
     this.animatedProps = [];
     this.clouds = [];
     this.balloons = [];
     this.flags = [];
     this.signalLights = [];
-    this.boostPadTexture = null;
     this.waterMesh = null;
 
     // 周回管理チェックポイント
@@ -208,7 +178,6 @@ export class GameWorld {
     this.createDistantScenery();
     this.createLandmarksAndSkyProps();
     this.spawnEnvironmentProps();
-    this.spawnBoostPads();
     this.spawnRamps();
     this.spawnCoins();
     this.spawnItemBoxes();
@@ -1265,42 +1234,6 @@ export class GameWorld {
     }
   }
 
-  // ダッシュパネル（ブーストパッド）の配置
-  spawnBoostPads() {
-    this.boostPadTexture = TextureFactory.createBoostPadTexture();
-    const padGeo = new THREE.PlaneGeometry(3.4, 7.6);
-    const padMat = new THREE.MeshBasicMaterial({
-      map: this.boostPadTexture,
-      polygonOffset: true,
-      polygonOffsetFactor: -3
-    });
-    const up = new THREE.Vector3(0, 1, 0);
-
-    this.preset.boostPads.forEach((cfg) => {
-      const p = this.trackCurve.getPointAt(cfg.u);
-      const t = this.trackCurve.getTangentAt(cfg.u).normalize();
-      const n = new THREE.Vector3().crossVectors(t, up).normalize();
-      const pos = p.clone().addScaledVector(n, cfg.offset);
-
-      const group = new THREE.Group();
-      group.position.set(pos.x, pos.y + 0.08, pos.z);
-      group.lookAt(pos.clone().add(t).setY(pos.y + 0.08));
-
-      const mesh = new THREE.Mesh(padGeo, padMat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.rotation.z = Math.PI; // 矢印を進行方向(+Z)に向ける
-      group.add(mesh);
-
-      this.worldGroup.add(group);
-      this.boostPads.push({
-        position: pos,
-        u: cfg.u,
-        offset: cfg.offset,
-        radius: 3.1
-      });
-    });
-  }
-
   // ジャンプ台（ランプ）の配置
   spawnRamps() {
     const rampTex = TextureFactory.createRampTexture();
@@ -1452,11 +1385,6 @@ export class GameWorld {
 
   // 毎フレームのワールドアニメーション
   update(dt, time) {
-    // ダッシュパネルの矢印UVスクロール
-    if (this.boostPadTexture) {
-      this.boostPadTexture.offset.y -= dt * 2.6;
-    }
-
     // コインの回転・浮遊
     for (let i = 0; i < this.coins.length; i++) {
       const coin = this.coins[i];

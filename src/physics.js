@@ -392,8 +392,11 @@ export class CartPhysics {
     return true;
   }
 
+  // アイテム1（ダッシュ）：オフロード無効＆爆発的な超加速で逆転やショートカットの切り札に！
   useMushroom() {
-    this.triggerBoost(2.1, 1.45);
+    this.boostTime = Math.max(this.boostTime, 2.5);
+    this.boostSpeedMultiplier = Math.max(this.boostSpeedMultiplier, 1.56);
+    this.speed = Math.max(this.speed, this.maxSpeed * 1.48);
   }
 
   useStar() {

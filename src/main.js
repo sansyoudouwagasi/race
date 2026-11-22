@@ -511,19 +511,7 @@ class GameManager {
     const playerPhys = this.playerPhysics;
     const allPhysics = [playerPhys, ...this.rivals.map(r => r.physics)];
 
-    // 1. ダッシュパネル判定
-    this.world.boostPads.forEach(pad => {
-      allPhysics.forEach(cart => {
-        if (cart.height > 1.2) return;
-        const dx = cart.position.x - pad.position.x;
-        const dz = cart.position.z - pad.position.z;
-        if (dx * dx + dz * dz < pad.radius * pad.radius) {
-          cart.triggerBoostPad();
-        }
-      });
-    });
-
-    // 2. ジャンプ台判定
+    // 1. ジャンプ台判定
     this.world.ramps.forEach(ramp => {
       allPhysics.forEach(cart => {
         if (cart.height > 0.8 || cart.speed < 10) return;
