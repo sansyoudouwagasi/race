@@ -2,7 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>SUPER KART GP 3D</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,21 +25,21 @@
       <p class="menu-sub">3段階ドリフト・ジャンプトリック・スリップストリームでライバルをぶっちぎれ！</p>
 
       <div class="course-grid">
-        <button class="course-card selected" data-course="sunshine">
+        <button type="button" class="course-card selected" data-course="sunshine">
           <div class="course-thumb thumb-sunshine"></div>
           <div class="course-info">
             <span class="course-name">SUNSHINE CIRCUIT</span>
             <span class="course-desc">海と緑の爽快サーキット ★☆☆</span>
           </div>
         </button>
-        <button class="course-card" data-course="sunset">
+        <button type="button" class="course-card" data-course="sunset">
           <div class="course-thumb thumb-sunset"></div>
           <div class="course-info">
             <span class="course-name">SUNSET CANYON</span>
             <span class="course-desc">夕焼けの渓谷・大ジャンプ ★★☆</span>
           </div>
         </button>
-        <button class="course-card" data-course="neon">
+        <button type="button" class="course-card" data-course="neon">
           <div class="course-thumb thumb-neon"></div>
           <div class="course-info">
             <span class="course-name">NEON METROPOLIS</span>
@@ -47,7 +48,7 @@
         </button>
       </div>
 
-      <button id="btn-start-race" class="primary-cta">RACE START!</button>
+      <button type="button" id="btn-start-race" class="primary-cta">RACE START!</button>
 
       <div class="controls-guide">
         <span><kbd>W</kbd>/<kbd>↑</kbd> アクセル</span>
@@ -61,7 +62,7 @@
 
   <!-- HUDオーバーレイ -->
   <div id="hud">
-    <!-- 左上: 順位・コイン・アイテム -->
+    <!-- 左上: 順位・アイテム・コイン -->
     <div id="left-top-container">
       <div id="rank-panel" class="hud-panel">
         <span class="label">POS</span>
@@ -87,9 +88,9 @@
     <!-- 右上: ユーティリティボタン・ミニマップ・LAP＆タイマー -->
     <div id="right-top-container">
       <div class="hud-tools">
-        <button id="btn-mute" class="icon-btn" title="サウンド ON/OFF (M)">🔊</button>
-        <button id="btn-camera" class="icon-btn" title="カメラ視点切替 (C)">🎥</button>
-        <button id="btn-back-menu" class="icon-btn" title="コース選択に戻る">🏠</button>
+        <button type="button" id="btn-mute" class="icon-btn" title="サウンド ON/OFF (M)">🔊</button>
+        <button type="button" id="btn-camera" class="icon-btn" title="カメラ視点切替 (C)">🎥</button>
+        <button type="button" id="btn-back-menu" class="icon-btn" title="コース選択に戻る">🏠</button>
       </div>
       <div id="minimap-container">
         <canvas id="minimap-canvas"></canvas>
@@ -120,21 +121,26 @@
       </div>
     </div>
 
-    <!-- モバイル用コントロールパッド -->
+    <!-- モバイル用コントロールパッド（マルチタッチ＆スライド対応） -->
     <div id="mobile-controls">
+      <!-- 左下: スライド対応ステアリングパッド -->
       <div id="left-controls">
-        <div class="action-row">
-          <button id="btn-item" class="control-btn action-btn item-btn">ITEM</button>
-          <button id="btn-drift" class="control-btn action-btn drift-btn">DRIFT</button>
-        </div>
-        <div class="action-row">
-          <button id="btn-left" class="control-btn steer-btn">◀</button>
-          <button id="btn-right" class="control-btn steer-btn">▶</button>
+        <div id="steer-pad">
+          <button type="button" id="btn-left" class="control-btn steer-btn">◀</button>
+          <button type="button" id="btn-right" class="control-btn steer-btn">▶</button>
         </div>
       </div>
-      <div id="right-controls" class="action-row">
-        <button id="btn-brake" class="control-btn action-btn brake-btn">B</button>
-        <button id="btn-gas" class="control-btn action-btn gas-btn">A</button>
+      <!-- 右下: アクション＆アクセル -->
+      <div id="right-controls">
+        <div class="action-row top-actions">
+          <button type="button" id="btn-auto-gas" class="control-btn pill-btn auto-btn active">AUTO</button>
+          <button type="button" id="btn-item" class="control-btn pill-btn item-btn">ITEM</button>
+        </div>
+        <div class="action-row main-actions">
+          <button type="button" id="btn-brake" class="control-btn action-btn brake-btn">B</button>
+          <button type="button" id="btn-drift" class="control-btn action-btn drift-btn">DRIFT</button>
+          <button type="button" id="btn-gas" class="control-btn action-btn gas-btn">A</button>
+        </div>
       </div>
     </div>
   </div>
@@ -166,17 +172,9 @@
       <div id="standings-list"></div>
 
       <div class="result-actions">
-        <button id="btn-restart" class="primary-cta">もう一度走る</button>
-        <button id="btn-result-menu" class="secondary-cta">コース選択へ</button>
+        <button type="button" id="btn-restart" class="primary-cta">もう一度走る</button>
+        <button type="button" id="btn-result-menu" class="secondary-cta">コース選択へ</button>
       </div>
-    </div>
-  </div>
-
-  <!-- 横画面推奨警告 -->
-  <div id="landscape-warning">
-    <div class="warning-content">
-      <div class="phone-icon">📱</div>
-      <p>このゲームは横画面専用です。<br>端末を横向きに回転してください。</p>
     </div>
   </div>
 

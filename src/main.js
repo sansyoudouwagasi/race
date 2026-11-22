@@ -48,7 +48,11 @@ class GameManager {
     this.setupPlayers();
     this.setupMenuBindings();
 
+    // 画面回転・リサイズ時に確実にカメラとキャンバスを追従させる
     window.addEventListener('resize', () => this.onWindowResize());
+    window.addEventListener('orientationchange', () => {
+      setTimeout(() => this.onWindowResize(), 120);
+    });
     document.getElementById('btn-restart').addEventListener('click', () => this.startRace(this.currentCourseId));
     const btnResultMenu = document.getElementById('btn-result-menu');
     if (btnResultMenu) {
@@ -60,16 +64,19 @@ class GameManager {
   }
 
   initThree() {
+    this.isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+      ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.2, 2400);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: document.getElementById('game-canvas'),
-      antialias: true,
+      antialias: !this.isMobile,
       powerPreference: 'high-performance'
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.isMobile ? 1.5 : 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -84,8 +91,9 @@ class GameManager {
     this.dirLight = new THREE.DirectionalLight(0xfff8e6, 1.45);
     this.dirLight.position.set(140, 210, 90);
     this.dirLight.castShadow = true;
-    this.dirLight.shadow.mapSize.width = 2048;
-    this.dirLight.shadow.mapSize.height = 2048;
+    const shadowSize = this.isMobile ? 1024 : 2048;
+    this.dirLight.shadow.mapSize.width = shadowSize;
+    this.dirLight.shadow.mapSize.height = shadowSize;
     this.dirLight.shadow.camera.near = 10;
     this.dirLight.shadow.camera.far = 520;
     this.dirLight.shadow.bias = -0.0005;
@@ -980,7 +988,7 @@ class GameManager {
       if (this.gameState === 'RACING') this.elapsedTime += dt;
 
       const pInput = this.gameState === 'RACING'
-        ? this.ui.input
+        ? this.ui.getRaceInput()
         : { gas: false, brake: false, left: false, right: false, drift: false, item: false };
 
       this.playerPhysics.update(dt, pInput, this.world, this.elapsedTime);

@@ -265,9 +265,10 @@ export class GameWorld {
   }
 
   createTerrainAndWater() {
-    // 起伏あるプロシージャル地形メッシュ
+    // 起伏あるプロシージャル地形メッシュ（スマホでは分割数を抑えて軽量化）
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const size = 1400;
-    const segs = 128;
+    const segs = isMobile ? 72 : 120;
     const terrainGeo = new THREE.PlaneGeometry(size, size, segs, segs);
     terrainGeo.rotateX(-Math.PI / 2);
 

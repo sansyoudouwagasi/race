@@ -24,6 +24,11 @@ export class GameUI {
       lookBack: false
     };
 
+    // スマホ向けオートアクセル（タッチ端末ではデフォルトON、いつでも切替可能）
+    this.isTouchDevice = false;
+    this.autoGas = false;
+    this.manualGas = false;
+
     // DOMキャッシュ
     this.hudEl = document.getElementById('hud');
     this.rankValue = document.getElementById('rank-value');
@@ -135,27 +140,154 @@ export class GameUI {
   }
 
   setupTouchInput() {
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isTouch) {
-      document.body.classList.add('touch-device');
-    }
-
-    const bindTouchButton = (btnId, inputKey) => {
-      const btn = document.getElementById(btnId);
-      if (!btn) return;
-      const handleStart = (e) => { e.preventDefault(); this.input[inputKey] = true; };
-      const handleEnd = (e) => { e.preventDefault(); this.input[inputKey] = false; };
-      btn.addEventListener('touchstart', handleStart, { passive: false });
-      btn.addEventListener('touchend', handleEnd, { passive: false });
-      btn.addEventListener('touchcancel', handleEnd, { passive: false });
+    const detectTouch = () => {
+      return (
+        'ontouchstart' in window ||
+        navigator.maxTouchPoints > 0 ||
+        (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+      );
     };
 
-    bindTouchButton('btn-left', 'left');
-    bindTouchButton('btn-right', 'right');
-    bindTouchButton('btn-gas', 'gas');
-    bindTouchButton('btn-brake', 'brake');
-    bindTouchButton('btn-drift', 'drift');
-    bindTouchButton('btn-item', 'item');
+    const enableTouchMode = () => {
+      if (this.isTouchDevice) return;
+      this.isTouchDevice = true;
+      this.autoGas = true;
+      document.body.classList.add('touch-device');
+      const autoBtn = document.getElementById('btn-auto-gas');
+      if (autoBtn) autoBtn.classList.add('active');
+    };
+
+    if (detectTouch()) {
+      enableTouchMode();
+    } else {
+      // デスクトップ判定でも実際にタッチされたら即タッチUIを有効化
+      window.addEventListener('touchstart', () => enableTouchMode(), { once: true, passive: true });
+    }
+
+    // 1. スライド対応ステアリングパッド（◀と▶の間を指を離さず滑らせても切り替わる！）
+    const steerPad = document.getElementById('steer-pad');
+    const btnLeft = document.getElementById('btn-left');
+    const btnRight = document.getElementById('btn-right');
+
+    const updateSteerFromTouches = (touches) => {
+      if (!steerPad) return;
+      const rect = steerPad.getBoundingClientRect();
+      const midX = rect.left + rect.width / 2;
+      let leftActive = false;
+      let rightActive = false;
+
+      for (let i = 0; i < touches.length; i++) {
+        const t = touches[i];
+        // ステアリングパッド付近にある指だけを対象にする（右手のタッチを無視）
+        if (
+          t.clientX >= rect.left - 45 &&
+          t.clientX <= rect.right + 45 &&
+          t.clientY >= rect.top - 55 &&
+          t.clientY <= rect.bottom + 55
+        ) {
+          if (t.clientX < midX) leftActive = true;
+          else rightActive = true;
+        }
+      }
+
+      this.input.left = leftActive;
+      this.input.right = rightActive;
+      if (btnLeft) btnLeft.classList.toggle('pressed', leftActive);
+      if (btnRight) btnRight.classList.toggle('pressed', rightActive);
+    };
+
+    if (steerPad) {
+      const handleSteerTouch = (e) => {
+        e.preventDefault();
+        enableTouchMode();
+        this.sound.init();
+        updateSteerFromTouches(e.touches);
+      };
+      steerPad.addEventListener('touchstart', handleSteerTouch, { passive: false });
+      steerPad.addEventListener('touchmove', handleSteerTouch, { passive: false });
+      steerPad.addEventListener('touchend', handleSteerTouch, { passive: false });
+      steerPad.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        this.input.left = false;
+        this.input.right = false;
+        if (btnLeft) btnLeft.classList.remove('pressed');
+        if (btnRight) btnRight.classList.remove('pressed');
+      }, { passive: false });
+    }
+
+    // 2. 右側アクションボタン（マルチタッチ安全対応）
+    const bindHoldButton = (btnId, onChange) => {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      const start = (e) => {
+        e.preventDefault();
+        enableTouchMode();
+        this.sound.init();
+        btn.classList.add('pressed');
+        onChange(true);
+      };
+      const end = (e) => {
+        e.preventDefault();
+        btn.classList.remove('pressed');
+        onChange(false);
+      };
+      btn.addEventListener('touchstart', start, { passive: false });
+      btn.addEventListener('touchend', end, { passive: false });
+      btn.addEventListener('touchcancel', end, { passive: false });
+    };
+
+    bindHoldButton('btn-gas', (down) => {
+      this.manualGas = down;
+      this.input.gas = down;
+    });
+    bindHoldButton('btn-brake', (down) => {
+      this.input.brake = down;
+    });
+    bindHoldButton('btn-drift', (down) => {
+      this.input.drift = down;
+    });
+    bindHoldButton('btn-item', (down) => {
+      if (down) this.input.item = true;
+    });
+
+    // アイテムスロット自体をタップしてもアイテム発動できるようにする
+    if (this.itemSlot) {
+      this.itemSlot.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        this.sound.init();
+        this.input.item = true;
+      }, { passive: false });
+      this.itemSlot.addEventListener('click', () => {
+        this.sound.init();
+        this.input.item = true;
+      });
+    }
+
+    // オートアクセル切替ボタン
+    const autoBtn = document.getElementById('btn-auto-gas');
+    if (autoBtn) {
+      const toggleAuto = (e) => {
+        e.preventDefault();
+        this.autoGas = !this.autoGas;
+        autoBtn.classList.toggle('active', this.autoGas);
+        this.showBanner(this.autoGas ? 'AUTO ACCEL: ON' : 'AUTO ACCEL: OFF', this.autoGas ? '#00ff88' : '#ffcc00', 900);
+      };
+      autoBtn.addEventListener('touchstart', toggleAuto, { passive: false });
+      autoBtn.addEventListener('click', toggleAuto);
+    }
+  }
+
+  // レース中に入力状態（オートアクセル反映済み）を取得
+  getRaceInput() {
+    return {
+      gas: this.input.gas || (this.isTouchDevice && this.autoGas && !this.input.brake),
+      brake: this.input.brake,
+      left: this.input.left,
+      right: this.input.right,
+      drift: this.input.drift,
+      item: this.input.item,
+      lookBack: this.input.lookBack
+    };
   }
 
   setHUDVisible(visible) {

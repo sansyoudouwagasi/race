@@ -335,12 +335,16 @@ export const TextureFactory = {
 
   // スカイボックス用プロシージャル空テクスチャ
   createSkyTexture(theme = 'sunshine') {
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const logicalW = 2048;
+    const logicalH = 1024;
     const canvas = document.createElement('canvas');
-    canvas.width = 2048;
-    canvas.height = 1024;
+    canvas.width = isMobile ? 1024 : logicalW;
+    canvas.height = isMobile ? 512 : logicalH;
     const ctx = canvas.getContext('2d');
+    if (isMobile) ctx.scale(0.5, 0.5);
 
-    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    const grad = ctx.createLinearGradient(0, 0, 0, logicalH);
     if (theme === 'sunset') {
       grad.addColorStop(0.0, '#141840');
       grad.addColorStop(0.28, '#4a2b6b');
@@ -367,13 +371,13 @@ export const TextureFactory = {
       grad.addColorStop(1.0, '#3a7a4a');
     }
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, logicalW, logicalH);
 
     if (theme === 'neon') {
       // 満天の星とオーロラ帯
       for (let i = 0; i < 900; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * (canvas.height * 0.48);
+        const x = Math.random() * logicalW;
+        const y = Math.random() * (logicalH * 0.48);
         const r = 0.6 + Math.random() * 1.8;
         ctx.fillStyle = `rgba(255,255,255,${0.35 + Math.random() * 0.65})`;
         ctx.beginPath();
@@ -427,7 +431,7 @@ export const TextureFactory = {
       };
       for (let i = 0; i < 24; i++) {
         drawSoftCloud(
-          Math.random() * canvas.width,
+          Math.random() * logicalW,
           240 + Math.random() * 210,
           1.2 + Math.random() * 2.2,
           0.35 + Math.random() * 0.4,

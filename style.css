@@ -5,21 +5,25 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 html, body {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   overflow: hidden;
   background-color: #0b0d17;
   position: relative;
+  overscroll-behavior: none;
 }
 
 #game-canvas {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
 }
 
 /* --- ブースト集中線 (スピードライン) --- */
@@ -63,36 +67,40 @@ html, body {
   background: radial-gradient(circle at center, rgba(10, 16, 36, 0.38), rgba(6, 9, 20, 0.82));
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
-  padding: 20px;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .menu-box {
-  width: min(820px, 95vw);
-  background: rgba(12, 16, 32, 0.78);
+  width: min(820px, 96vw);
+  max-height: 100%;
+  overflow-y: auto;
+  background: rgba(12, 16, 32, 0.82);
   border: 1.5px solid rgba(255, 255, 255, 0.18);
-  border-radius: 28px;
-  padding: 32px 36px;
+  border-radius: 26px;
+  padding: 28px 32px;
   text-align: center;
   color: #fff;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
-  animation: modal-enter 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: modal-enter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .menu-badge {
   display: inline-block;
-  padding: 5px 14px;
+  padding: 4px 14px;
   border-radius: 999px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.16em;
   background: linear-gradient(90deg, rgba(0, 240, 255, 0.25), rgba(255, 0, 127, 0.25));
   border: 1px solid rgba(0, 240, 255, 0.45);
   color: #7ce8ff;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .menu-title {
-  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  font-size: clamp(1.8rem, 4.8vw, 3.5rem);
   font-weight: 900;
   font-style: italic;
   letter-spacing: 0.03em;
@@ -108,44 +116,44 @@ html, body {
 }
 
 .menu-sub {
-  font-size: 0.96rem;
+  font-size: 0.92rem;
   color: rgba(255, 255, 255, 0.76);
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .course-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .course-card {
   background: rgba(255, 255, 255, 0.06);
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
   overflow: hidden;
   cursor: pointer;
   color: #fff;
   text-align: left;
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  touch-action: manipulation;
 }
 
 .course-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   border-color: rgba(255, 255, 255, 0.4);
 }
 
 .course-card.selected {
   border-color: #00f0ff;
-  box-shadow: 0 0 24px rgba(0, 240, 255, 0.42);
-  background: rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 22px rgba(0, 240, 255, 0.45);
+  background: rgba(0, 240, 255, 0.14);
 }
 
 .course-thumb {
-  height: 76px;
+  height: 70px;
   width: 100%;
-  position: relative;
 }
 
 .thumb-sunshine {
@@ -159,21 +167,21 @@ html, body {
 }
 
 .course-info {
-  padding: 12px 14px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .course-name {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 900;
   font-style: italic;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
 .course-desc {
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.72);
 }
 
@@ -182,15 +190,16 @@ html, body {
   color: #07101f;
   border: none;
   border-radius: 999px;
-  padding: 14px 48px;
-  font-size: 1.25rem;
+  padding: 13px 44px;
+  font-size: 1.2rem;
   font-weight: 900;
   font-style: italic;
   letter-spacing: 0.06em;
   cursor: pointer;
   box-shadow: 0 10px 28px rgba(0, 240, 255, 0.4);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
   pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .primary-cta:hover {
@@ -199,7 +208,7 @@ html, body {
 }
 
 .primary-cta:active {
-  transform: translateY(1px) scale(0.99);
+  transform: scale(0.96);
 }
 
 .secondary-cta {
@@ -207,12 +216,12 @@ html, body {
   color: #fff;
   border: 1.5px solid rgba(255, 255, 255, 0.25);
   border-radius: 999px;
-  padding: 12px 28px;
-  font-size: 1rem;
+  padding: 11px 24px;
+  font-size: 0.96rem;
   font-weight: 800;
   cursor: pointer;
-  transition: background 0.16s ease;
   pointer-events: auto;
+  touch-action: manipulation;
 }
 
 .secondary-cta:hover {
@@ -220,12 +229,12 @@ html, body {
 }
 
 .controls-guide {
-  margin-top: 20px;
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px 18px;
-  font-size: 0.8rem;
+  gap: 8px 16px;
+  font-size: 0.78rem;
   color: rgba(255, 255, 255, 0.72);
 }
 
@@ -233,10 +242,14 @@ html, body {
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 6px;
-  padding: 2px 7px;
+  padding: 2px 6px;
   font-weight: 800;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   color: #fff;
+}
+
+body.touch-device .controls-guide {
+  display: none;
 }
 
 /* --- HUD --- */
@@ -253,47 +266,48 @@ html, body {
     "center center"
     "left-bottom right-bottom";
   z-index: 10;
+  touch-action: none;
 }
 
 .hud-panel {
   background: rgba(12, 16, 30, 0.68);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 16px;
+  border-radius: 14px;
   color: #fff;
-  padding: 10px 18px;
+  padding: 8px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
 #left-top-container {
   grid-area: left-top;
   justify-self: start;
-  margin: 18px;
+  margin: 14px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 #rank-panel {
-  min-width: 112px;
+  min-width: 104px;
   border-left: 4px solid #ff007f;
 }
 
 #coin-panel {
-  min-width: 90px;
+  min-width: 84px;
   border-left: 4px solid #ffd700;
 }
 
 .coin-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 1.35rem;
+  gap: 5px;
+  font-size: 1.25rem;
   font-weight: 900;
   font-style: italic;
 }
@@ -307,35 +321,34 @@ html, body {
 #right-top-container {
   grid-area: right-top;
   justify-self: end;
-  margin: 18px;
+  margin: 14px;
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .hud-tools {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   pointer-events: auto;
 }
 
 .icon-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(12, 16, 30, 0.72);
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(12, 16, 30, 0.74);
   color: #fff;
-  font-size: 1.1rem;
+  font-size: 1rem;
   cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: transform 0.12s, background 0.15s;
+  touch-action: manipulation;
 }
 
-.icon-btn:hover {
-  transform: scale(1.08);
-  background: rgba(0, 240, 255, 0.25);
+.icon-btn:active {
+  transform: scale(0.92);
+  background: rgba(0, 240, 255, 0.28);
 }
 
 .icon-btn.muted {
@@ -343,20 +356,20 @@ html, body {
 }
 
 #lap-panel {
-  min-width: 118px;
+  min-width: 110px;
   border-right: 4px solid #00f0ff;
 }
 
 .timer-sub {
-  margin-top: 4px;
+  margin-top: 3px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #7ce8ff;
 }
 
 .label {
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.6);
@@ -364,14 +377,14 @@ html, body {
 }
 
 .value {
-  font-size: 2.1rem;
+  font-size: 1.95rem;
   font-weight: 900;
   line-height: 1;
   font-style: italic;
 }
 
 .value .sub {
-  font-size: 0.98rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.55);
   font-style: normal;
@@ -383,27 +396,29 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  pointer-events: auto; /* タップでもアイテム発動できる！ */
 }
 
 #item-slot {
-  width: 78px;
-  height: 78px;
+  width: 72px;
+  height: 72px;
   background: rgba(10, 14, 28, 0.84);
   border: 3px solid rgba(255, 255, 255, 0.25);
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
 }
 
 #item-slot-inner {
   width: 100%;
   height: 100%;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -416,32 +431,31 @@ html, body {
 }
 
 #item-spinner {
-  font-size: 2.1rem;
+  font-size: 1.9rem;
   font-weight: 900;
   color: #ffaa00;
   text-shadow: 0 0 12px rgba(255, 170, 0, 0.8);
 }
 
 #item-badge {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   background: rgba(10, 14, 28, 0.78);
-  padding: 2px 9px;
+  padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 /* ミニマップ */
 #minimap-container {
-  width: 146px;
-  height: 146px;
+  width: 136px;
+  height: 136px;
   background: rgba(12, 16, 30, 0.68);
-  backdrop-filter: blur(8px);
   border: 1.5px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -458,21 +472,22 @@ html, body {
   grid-area: center;
   justify-self: center;
   align-self: start;
-  margin-top: 12px;
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 #action-banner {
-  font-size: clamp(1.4rem, 3.2vw, 2.3rem);
+  font-size: clamp(1.2rem, 3.2vw, 2.2rem);
   font-weight: 900;
   font-style: italic;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   opacity: 0;
   transform: scale(0.7) translateY(-10px);
   transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  white-space: nowrap;
 }
 
 #action-banner.show {
@@ -481,11 +496,11 @@ html, body {
 }
 
 #wrong-way {
-  padding: 8px 22px;
-  border-radius: 12px;
-  background: rgba(220, 20, 50, 0.88);
+  padding: 6px 18px;
+  border-radius: 10px;
+  background: rgba(220, 20, 50, 0.9);
   color: #fff;
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   font-weight: 900;
   letter-spacing: 0.08em;
   box-shadow: 0 0 24px rgba(255, 0, 60, 0.7);
@@ -502,25 +517,33 @@ html, body {
   grid-area: right-bottom;
   justify-self: end;
   align-self: end;
-  margin: 20px;
-  min-width: 170px;
+  margin: 16px;
+  min-width: 160px;
   align-items: stretch;
-  gap: 6px;
+  gap: 5px;
 }
 
+/* タッチ端末ではスピードメーターを中央下部へ移動して右下ボタンと絶対に被らないようにする */
 body.touch-device #speed-panel {
-  margin-bottom: 165px;
+  position: fixed;
+  left: 50%;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  margin: 0;
+  min-width: 126px;
+  padding: 6px 12px;
+  z-index: 12;
 }
 
 .speed-header {
   display: flex;
   justify-content: flex-end;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
 }
 
 #speed-value {
-  font-size: 2.3rem;
+  font-size: 2.1rem;
   font-weight: 900;
   font-style: italic;
   line-height: 1;
@@ -529,21 +552,21 @@ body.touch-device #speed-panel {
 }
 
 #speed-panel .unit {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.62);
 }
 
 .meter-track {
   width: 100%;
-  height: 8px;
+  height: 7px;
   background: rgba(255, 255, 255, 0.14);
   border-radius: 999px;
   overflow: hidden;
 }
 
 .meter-track.thin {
-  height: 6px;
+  height: 5px;
 }
 
 #speed-bar-fill, #drift-bar-fill {
@@ -556,26 +579,28 @@ body.touch-device #speed-panel {
 .drift-meter-row {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 #drift-label {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-align: right;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.48);
 }
 
 /* --- モバイルコントロール --- */
 #mobile-controls {
-  position: absolute;
+  position: fixed;
   inset: 0;
   pointer-events: none;
   display: none;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 20px 36px;
+  padding: 0 max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  z-index: 20;
+  touch-action: none;
 }
 
 body.touch-device #mobile-controls {
@@ -585,39 +610,121 @@ body.touch-device #mobile-controls {
 #left-controls, #right-controls {
   pointer-events: auto;
   display: flex;
-  gap: 14px;
-  margin-bottom: env(safe-area-inset-bottom);
+  flex-direction: column;
+  gap: 10px;
+  touch-action: none;
 }
 
-#left-controls { flex-direction: column; }
-#right-controls { align-items: flex-end; }
-.action-row { display: flex; gap: 14px; }
+#right-controls {
+  align-items: flex-end;
+}
+
+#steer-pad {
+  display: flex;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 999px;
+  background: rgba(12, 16, 30, 0.36);
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  touch-action: none;
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
 
 .control-btn {
-  background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(10px);
-  border: 2px solid rgba(255, 255, 255, 0.32);
+  background: rgba(18, 24, 42, 0.56);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 2px solid rgba(255, 255, 255, 0.34);
   color: #fff;
   font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-  touch-action: manipulation;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.38);
+  touch-action: none;
+  transition: transform 0.06s, background-color 0.08s;
 }
 
-.control-btn:active { transform: scale(0.92); background: rgba(255, 255, 255, 0.28); }
-.steer-btn { width: 62px; height: 62px; border-radius: 50%; font-size: 1.4rem; }
-.gas-btn { width: 78px; height: 78px; border-radius: 50%; background: rgba(0, 240, 255, 0.22); border-color: rgba(0, 240, 255, 0.6); color: #00f0ff; font-size: 1.8rem; }
-.brake-btn { width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 0, 80, 0.22); border-color: rgba(255, 0, 80, 0.6); color: #ff0050; font-size: 1.4rem; }
-.drift-btn { width: 74px; height: 50px; border-radius: 25px; background: rgba(255, 200, 0, 0.22); border-color: rgba(255, 200, 0, 0.6); color: #ffc800; font-size: 0.9rem; }
-.item-btn { width: 74px; height: 50px; border-radius: 25px; font-size: 0.9rem; }
+.control-btn.pressed,
+.control-btn:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.steer-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  font-size: 1.65rem;
+}
+
+.gas-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.25);
+  border-color: rgba(0, 240, 255, 0.72);
+  color: #00f0ff;
+  font-size: 1.65rem;
+}
+
+.drift-btn {
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: rgba(255, 200, 0, 0.24);
+  border-color: rgba(255, 200, 0, 0.75);
+  color: #ffd000;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
+.brake-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(255, 0, 80, 0.24);
+  border-color: rgba(255, 0, 80, 0.68);
+  color: #ff3b6b;
+  font-size: 1.25rem;
+}
+
+.pill-btn {
+  height: 40px;
+  padding: 0 15px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+}
+
+.item-btn {
+  background: rgba(255, 170, 0, 0.25);
+  border-color: rgba(255, 190, 0, 0.7);
+  color: #ffe066;
+}
+
+.auto-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.auto-btn.active {
+  background: rgba(0, 255, 136, 0.26);
+  border-color: rgba(0, 255, 136, 0.82);
+  color: #00ff88;
+}
 
 /* --- カウントダウン --- */
 #overlay-screen {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(8, 10, 20, 0.22);
+  background: rgba(8, 10, 20, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -626,7 +733,7 @@ body.touch-device #mobile-controls {
 }
 
 #countdown-text {
-  font-size: clamp(5rem, 14vw, 9rem);
+  font-size: clamp(4.2rem, 14vw, 9rem);
   font-weight: 900;
   font-style: italic;
   letter-spacing: 0.05em;
@@ -649,62 +756,65 @@ body.touch-device #mobile-controls {
   position: fixed;
   inset: 0;
   background: rgba(7, 10, 22, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
-  padding: 20px;
+  padding: 14px;
+  overflow-y: auto;
 }
 
 .result-box {
-  background: rgba(16, 20, 38, 0.86);
+  background: rgba(16, 20, 38, 0.88);
   border: 1.5px solid rgba(255, 255, 255, 0.18);
-  border-radius: 26px;
-  padding: 32px 38px;
+  border-radius: 24px;
+  padding: 24px 28px;
   text-align: center;
   color: #fff;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
-  width: min(540px, 94vw);
-  animation: modal-enter 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  width: min(540px, 95vw);
+  max-height: 94dvh;
+  overflow-y: auto;
+  animation: modal-enter 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 #result-title {
-  font-size: 3rem;
+  font-size: clamp(2rem, 6vw, 3rem);
   font-weight: 900;
   font-style: italic;
   color: #00f0ff;
   text-shadow: 0 0 22px rgba(0, 240, 255, 0.65);
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .result-summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 18px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .summary-chip {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 10px 8px;
+  border-radius: 12px;
+  padding: 8px 6px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
 .chip-label {
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: rgba(255, 255, 255, 0.55);
 }
 
 .chip-val {
-  font-size: 1.25rem;
+  font-size: 1.12rem;
   font-weight: 900;
 }
 
@@ -720,19 +830,19 @@ body.touch-device #mobile-controls {
 #standings-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 22px;
+  gap: 5px;
+  margin-bottom: 16px;
 }
 
 .standing-row {
   display: grid;
-  grid-template-columns: 32px 14px 1fr auto;
+  grid-template-columns: 28px 12px 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 6px 12px;
+  border-radius: 9px;
   background: rgba(255, 255, 255, 0.05);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
   text-align: left;
 }
@@ -749,51 +859,179 @@ body.touch-device #mobile-controls {
 }
 
 .st-dot {
-  width: 11px;
-  height: 11px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
 }
 
 .st-time {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.78);
 }
 
 .result-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-/* 横画面警告 */
-#landscape-warning {
-  position: absolute;
-  inset: 0;
-  background: #08080c;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  color: #fff;
-  text-align: center;
+/* --- スマホ縦画面向け（幅が狭い画面） --- */
+@media (max-width: 640px) {
+  .menu-box {
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+  .menu-sub {
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+  }
+  .course-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .course-card {
+    display: flex;
+    align-items: center;
+  }
+  .course-thumb {
+    width: 74px;
+    height: 58px;
+    flex-shrink: 0;
+  }
+  .course-info {
+    padding: 8px 10px;
+  }
+  .primary-cta {
+    width: 100%;
+    padding: 13px 20px;
+    font-size: 1.15rem;
+  }
+  #left-top-container, #right-top-container {
+    margin: 8px;
+    gap: 6px;
+  }
+  .hud-panel {
+    padding: 5px 10px;
+    border-radius: 12px;
+  }
+  #rank-panel { min-width: 74px; }
+  #coin-panel { display: none; }
+  #lap-panel { min-width: 78px; }
+  .value { font-size: 1.4rem; }
+  .value .sub { font-size: 0.72rem; }
+  .timer-sub { font-size: 0.68rem; }
+  #item-slot { width: 54px; height: 54px; border-radius: 12px; }
+  #minimap-container { width: 82px; height: 82px; }
+  .icon-btn { width: 32px; height: 32px; font-size: 0.88rem; }
+  .steer-btn { width: 62px; height: 62px; font-size: 1.45rem; }
+  .gas-btn { width: 64px; height: 64px; font-size: 1.45rem; }
+  .drift-btn { width: 58px; height: 58px; font-size: 0.72rem; }
+  .brake-btn { width: 46px; height: 46px; font-size: 1.1rem; }
+  body.touch-device #speed-panel {
+    bottom: max(92px, calc(env(safe-area-inset-bottom) + 84px));
+    min-width: 108px;
+    padding: 4px 10px;
+  }
+  #speed-value { font-size: 1.45rem; }
 }
 
-.phone-icon {
-  font-size: 4rem;
-  margin-bottom: 18px;
-  animation: rotate-phone 2s ease-in-out infinite;
-}
+/* --- スマホ横画面向け（高さが低い画面：340px〜520px） --- */
+@media (max-height: 520px) {
+  .menu-box {
+    padding: 12px 18px;
+    border-radius: 18px;
+  }
+  .menu-badge {
+    display: none;
+  }
+  .menu-title {
+    font-size: 1.6rem;
+    margin-bottom: 2px;
+  }
+  .menu-sub {
+    font-size: 0.76rem;
+    margin-bottom: 10px;
+  }
+  .course-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .course-card {
+    display: block;
+  }
+  .course-thumb {
+    width: 100%;
+    height: 38px;
+  }
+  .course-info {
+    padding: 6px 8px;
+  }
+  .course-name {
+    font-size: 0.76rem;
+  }
+  .course-desc {
+    font-size: 0.64rem;
+  }
+  .primary-cta {
+    width: auto;
+    padding: 10px 34px;
+    font-size: 1.05rem;
+  }
+  .controls-guide {
+    display: none;
+  }
 
-@media (orientation: portrait) {
-  body.touch-device #landscape-warning { display: flex; }
-}
+  /* 横画面コンパクトHUD */
+  #left-top-container, #right-top-container {
+    margin: 8px;
+    gap: 8px;
+  }
+  .hud-panel {
+    padding: 5px 11px;
+  }
+  #rank-panel { min-width: 82px; }
+  #coin-panel { min-width: 68px; }
+  .coin-row { font-size: 1rem; }
+  #lap-panel { min-width: 86px; }
+  .value { font-size: 1.45rem; }
+  #item-slot { width: 54px; height: 54px; }
+  #minimap-container { width: 88px; height: 88px; }
+  .icon-btn { width: 32px; height: 32px; font-size: 0.88rem; }
+  .steer-btn { width: 62px; height: 62px; font-size: 1.45rem; }
+  .gas-btn { width: 64px; height: 64px; font-size: 1.45rem; }
+  .drift-btn { width: 58px; height: 58px; font-size: 0.72rem; }
+  .brake-btn { width: 46px; height: 46px; font-size: 1.1rem; }
+  .pill-btn { height: 34px; padding: 0 12px; font-size: 0.72rem; }
+  body.touch-device #speed-panel {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    min-width: 112px;
+    padding: 4px 10px;
+  }
+  #speed-value { font-size: 1.45rem; }
 
-@media (max-width: 720px) {
-  .course-grid { grid-template-columns: 1fr; }
-  .menu-box { padding: 20px; }
-  #minimap-container { width: 110px; height: 110px; }
+  /* リザルト画面コンパクト化 */
+  .result-box {
+    padding: 14px 18px;
+  }
+  #result-title {
+    font-size: 1.7rem;
+    margin-bottom: 8px;
+  }
+  .result-summary {
+    margin-bottom: 8px;
+  }
+  .standing-row {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+  }
+  #standings-list {
+    gap: 3px;
+    margin-bottom: 10px;
+  }
 }
 
 @keyframes countdown-pop {
@@ -807,9 +1045,4 @@ body.touch-device #mobile-controls {
 @keyframes modal-enter {
   0% { transform: scale(0.86); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes rotate-phone {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-90deg); }
 }
